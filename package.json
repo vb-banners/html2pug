@@ -1,5 +1,5 @@
 {
-  "name": "myapp",
+  "name": "HTML2PUG",
   "version": "0.1.0",
   "private": true,
   "homepage": ".",
@@ -17,7 +17,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "node scripts/build-to-docs.js",
-    "react-build": "react-scripts build",
+    "react-build": "node scripts/build-to-docs.js",
     "test": "react-scripts test --env=jsdom",
     "eject": "react-scripts eject"
   },

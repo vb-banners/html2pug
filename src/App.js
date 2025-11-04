@@ -419,7 +419,7 @@ class App extends Component {
                   checked={this.state.useSoftTabs}
                   onChange={this.onIndentTypeChange}
                 />
-                Spaces
+                <span>Spaces</span>
               </label>
               <label>
                 <input
@@ -429,7 +429,7 @@ class App extends Component {
                   checked={!this.state.useSoftTabs}
                   onChange={this.onIndentTypeChange}
                 />
-                Tabs
+                <span>Tabs</span>
               </label>
               <div className="tabsize-control">
                 <select
@@ -465,7 +465,7 @@ class App extends Component {
                   this.htmlEditor = editor;
                   this.syncEditorSession(editor);
                 }}
-                fontSize={16}
+                fontSize={18}
                 tabSize={tabSize}
                 value={this.state.HTMLCode}
                 onChange={this.onHTMLChage}
@@ -490,7 +490,7 @@ class App extends Component {
                   this.jadeEditor = editor;
                   this.syncEditorSession(editor);
                 }}
-                fontSize={16}
+                fontSize={18}
                 tabSize={tabSize}
                 value={this.state.JADECode}
                 onChange={this.onJADEChange}
