@@ -5,7 +5,7 @@ import AceEditor from "react-ace";
 import "brace/mode/html";
 import "brace/mode/xml";
 import "brace/mode/jade";
-import "brace/theme/eclipse";
+import "./themes/ayu-mirage";
 import { HTMLCode, JADECode } from "./template";
 import "./App.css";
 import "./fonts.css";
@@ -173,7 +173,7 @@ class App extends Component {
             <div className="col-12 col-md-6 editor editor-html">
               <AceEditor
                 mode="html"
-                theme="eclipse"
+                theme="ayu-mirage"
                 name="ace-html"
                 fontSize={16}
                 value={this.state.HTMLCode}
@@ -185,7 +185,7 @@ class App extends Component {
             <div className="col-12 col-md-6 editor editor-jade">
               <AceEditor
                 mode="jade"
-                theme="eclipse"
+                theme="ayu-mirage"
                 name="ace-jade"
                 fontSize={16}
                 value={this.state.JADECode}
