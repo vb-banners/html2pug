@@ -2,16 +2,27 @@ body {
   font-family: Helvetica;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 header,
 article {
   color: white;
-  background: #2d3436;
+  background: #1f2430;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 .footer {
-  background: white;
+  background: #1f2430;
+  color: #cbccc6;
+}
+
+section {
+  background: #1f2430;
+  height: calc(100vh - 69px);
+  overflow: hidden;
 }
 
 a,
@@ -36,6 +47,7 @@ header .right .links {
 header .logo {
   font-weight: 700;
   font-size: 30px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
 }
 
 header .small {
@@ -62,11 +74,13 @@ header .setting select[name="tabSize"] {
 .editor-html {
   padding-top: 20px;
   padding-right: 0;
+  height: 100%;
 }
 
 .editor-jade {
   padding-top: 20px;
   padding-left: 0;
+  height: 100%;
 }
 
 #ace-jade {
@@ -74,15 +88,16 @@ header .setting select[name="tabSize"] {
 }
 
 .ace_editor {
-  height: calc(100vh - 250px) !important;
-  font-family: "Source Code Pro", "Monaco", "Menlo", "Ubuntu Mono", "Consolas",
+  height: calc(100vh - 89px) !important;
+  font-family: 'Fira Code', "Source Code Pro", "Monaco", "Menlo", "Ubuntu Mono", "Consolas",
     monospace !important;
   width: 100% !important;
+  font-variant-ligatures: normal;
 }
 
 footer {
-  color: white;
-  background: white;
+  color: #cbccc6;
+  background: #1f2430;
 }
 
 @media (max-width: 575.98px) {

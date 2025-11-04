@@ -1,3 +1,9 @@
+/* Fira Code for code editors */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&display=swap');
+
+/* Plus Jakarta Sans for header */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 /* latin */
 @font-face {
   font-family: 'Arvo';
