@@ -21,6 +21,7 @@ article {
 
 section {
   background: #1f2430;
+  /* Height: 100vh minus header height (69px) to ensure full viewport coverage */
   height: calc(100vh - 69px);
   overflow: hidden;
 }
@@ -88,6 +89,7 @@ header .setting select[name="tabSize"] {
 }
 
 .ace_editor {
+  /* Height: 100vh minus header (69px) and editor top padding (20px) */
   height: calc(100vh - 89px) !important;
   font-family: 'Fira Code', "Source Code Pro", "Monaco", "Menlo", "Ubuntu Mono", "Consolas",
     monospace !important;
