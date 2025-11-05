@@ -370,6 +370,29 @@ footer {
   box-shadow: 0 0 0 2px rgba(115, 208, 255, 0.25);
 }
 
+.ace-hex-color-chip {
+  position: absolute;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  box-shadow: none;
+  z-index: 5;
+  transition: transform 0.12s ease;
+  box-sizing: border-box;
+}
+
+.ace-hex-color-chip__text {
+  font-family: 'Fira Code', "Source Code Pro", "Monaco", "Menlo", "Ubuntu Mono", "Consolas", monospace;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
 .editor-split {
   flex: 1 1 auto;
   display: flex;

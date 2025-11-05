@@ -19,6 +19,283 @@ const HTML_CODE_STORAGE_KEY = "html2pug:htmlCode";
 const JADE_CODE_STORAGE_KEY = "html2pug:jadeCode";
 const ID_TO_CLASS_STORAGE_KEY = "html2pug:idToClassToggle";
 
+const HEX_COLOR_MARKER_KEY = "__hexColorPreviewMarker";
+const HEX_COLOR_REGEX_SOURCE = "#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-fA-F])";
+const EDITOR_BACKGROUND_RGB = { r: 31, g: 36, b: 48 };
+
+const toHexPair = value => {
+  const doubled = value + value;
+  return doubled.toUpperCase();
+};
+
+const clamp = (value, min, max) => {
+  if (value < min) {
+    return min;
+  }
+  if (typeof max === "number" && value > max) {
+    return max;
+  }
+  return value;
+};
+
+const formatAlpha = value => {
+  if (value <= 0) {
+    return "0";
+  }
+  if (value >= 1) {
+    return "1";
+  }
+  return (value < 0.1 ? value.toFixed(3) : value.toFixed(2)).replace(/\.0+$/, "").replace(/0+$/, "");
+};
+
+const escapeHtml = value =>
+  String(value).replace(/[&<>"']/g, match => {
+    switch (match) {
+      case "&":
+        return "&amp;";
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case '"':
+        return "&quot;";
+      case "'":
+        return "&#39;";
+      default:
+        return match;
+    }
+  });
+
+const blendChannel = (base, target, ratio) => Math.round(base + (target - base) * ratio);
+
+const normalizeHexColor = hex => {
+  if (typeof hex !== "string" || !hex.startsWith("#")) {
+    return null;
+  }
+  const token = hex;
+  let raw = hex.slice(1);
+  if (![3, 4, 6, 8].includes(raw.length)) {
+    return null;
+  }
+  if (raw.length === 3 || raw.length === 4) {
+    raw = raw
+      .split("")
+      .map(toHexPair)
+      .join("");
+  }
+
+  let alphaHex = null;
+  if (raw.length === 8) {
+    alphaHex = raw.slice(6, 8);
+    raw = raw.slice(0, 6);
+  }
+
+  const normalized = raw.toUpperCase();
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  if ([r, g, b].some(value => Number.isNaN(value))) {
+    return null;
+  }
+
+  const alpha = alphaHex ? parseInt(alphaHex, 16) / 255 : 1;
+  const display = token;
+  const rgbaString = `rgba(${r}, ${g}, ${b}, ${formatAlpha(alpha)})`;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  const highlightColor = `rgb(${r}, ${g}, ${b})`;
+  const borderMixRatio = clamp(alpha > 0 ? 0.82 : 0.6, 0.4, 0.9);
+  const borderR = blendChannel(EDITOR_BACKGROUND_RGB.r, r, borderMixRatio);
+  const borderG = blendChannel(EDITOR_BACKGROUND_RGB.g, g, borderMixRatio);
+  const borderB = blendChannel(EDITOR_BACKGROUND_RGB.b, b, borderMixRatio);
+  const borderColor = `rgb(${borderR}, ${borderG}, ${borderB})`;
+  const textColor = luminance > 0.68 ? "#1f2430" : "#f6f7fb";
+
+  return {
+    display,
+    highlightColor,
+    borderColor,
+    textColor,
+    rgbaString
+  };
+};
+
+const shouldRenderHexPreview = (line, index) => {
+  if (index <= 0) {
+    return true;
+  }
+  const prev = line[index - 1];
+  return !/[0-9a-zA-Z_-]/.test(prev);
+};
+
+const createHexColorMarker = editor => ({
+  regex: new RegExp(HEX_COLOR_REGEX_SOURCE, "g"),
+  highlightPadding: 7,
+  minHighlightHeight: 14,
+  redraw: true,
+  update(html, markerLayer, session, config) {
+    const firstRow = config.firstRow;
+    const getLength = typeof session.getLength === "function" ? session.getLength.bind(session) : () => session.getDocument().getLength();
+    const lastRow = Math.min(config.lastRow, getLength() - 1);
+    const charWidth = config.characterWidth || 7;
+    const lineHeight = config.lineHeight || 16;
+    const markerPadding = markerLayer.$padding || 0;
+
+    for (let row = firstRow; row <= lastRow; row += 1) {
+      const line = session.getLine(row);
+      if (!line || line.indexOf("#") === -1) {
+        continue;
+      }
+      this.regex.lastIndex = 0;
+      let match;
+      // eslint-disable-next-line no-cond-assign
+      while ((match = this.regex.exec(line)) !== null) {
+        const startIndex = match.index;
+        if (!shouldRenderHexPreview(line, startIndex)) {
+          continue;
+        }
+        const colorInfo = normalizeHexColor(match[0]);
+        if (!colorInfo) {
+          continue;
+        }
+
+        const displayText = colorInfo.display;
+        const screenPos = session.documentToScreenPosition(row, startIndex);
+        const endScreenPos = session.documentToScreenPosition(row, startIndex + displayText.length);
+        const topBase = markerLayer.$getTop(screenPos.row, config);
+        const highlightHeight = clamp(Math.round(lineHeight - 4), this.minHighlightHeight, Math.round(lineHeight - 1));
+        const highlightTop = Math.round(topBase + (lineHeight - highlightHeight) / 2);
+        const baseLeft = Math.round(markerPadding + screenPos.column * charWidth);
+        const baseRight = Math.round(markerPadding + endScreenPos.column * charWidth);
+        const leftPadding = Math.max(1, Math.round(charWidth * 0.2));
+        const rightPadding = Math.max(2, Math.round(charWidth * 0.25));
+        const highlightLeft = clamp(baseLeft - leftPadding, 0);
+        const highlightRight = Math.max(baseRight + rightPadding, highlightLeft + leftPadding + 2);
+        const highlightWidth = Math.max(0, highlightRight - highlightLeft);
+        const title = `${colorInfo.display} - ${colorInfo.rgbaString}`;
+        const safeTitle = escapeHtml(title);
+        const safeDisplay = escapeHtml(displayText);
+        const configFontSizeValue = typeof config.fontSize === "string" ? parseFloat(config.fontSize) : config.fontSize;
+        const editorFontSize = editor && typeof editor.getFontSize === "function" ? editor.getFontSize() : null;
+        const numericFontSize = Number.isFinite(configFontSizeValue) ? configFontSizeValue : editorFontSize || 14;
+        const highlightStyle = `top:${highlightTop}px;left:${highlightLeft}px;width:${highlightWidth}px;height:${highlightHeight}px;background:${colorInfo.highlightColor};border-color:${colorInfo.borderColor};`;
+        const textStyle = `color:${colorInfo.textColor};font-size:${numericFontSize}px;line-height:${highlightHeight}px;padding:0 ${rightPadding}px 0 ${leftPadding}px;`;
+
+        html.push(
+          `<div class="ace-hex-color-chip" style="${highlightStyle}" title="${safeTitle}">` +
+            `<span class="ace-hex-color-chip__text" style="${textStyle}">${safeDisplay}</span>` +
+          `</div>`
+        );
+      }
+    }
+  }
+});
+
+const registerHexColorPreview = editor => {
+  if (!editor || !editor.session) {
+    return () => {};
+  }
+
+  const ensureMarker = session => {
+    if (!session || session[HEX_COLOR_MARKER_KEY]) {
+      return;
+    }
+    const marker = createHexColorMarker(editor);
+    const markerId = session.addDynamicMarker(marker, true);
+
+    const triggerFrontMarkerUpdate = () => {
+      if (editor && editor.renderer) {
+        if (typeof editor.renderer.updateFrontMarkers === "function") {
+          editor.renderer.updateFrontMarkers();
+        }
+        if (typeof editor.renderer.updateFull === "function") {
+          editor.renderer.updateFull(true);
+        }
+      } else if (typeof session._signal === "function") {
+        session._signal("changeFrontMarker");
+      }
+    };
+
+    const handleSessionChange = () => triggerFrontMarkerUpdate();
+    const handleEditorChange = () => triggerFrontMarkerUpdate();
+
+    if (typeof session.on === "function") {
+      session.on("change", handleSessionChange);
+    } else if (typeof session.addEventListener === "function") {
+      session.addEventListener("change", handleSessionChange);
+    }
+
+    if (typeof editor.on === "function") {
+      editor.on("change", handleEditorChange);
+    }
+
+    session[HEX_COLOR_MARKER_KEY] = { marker, markerId, handleSessionChange, handleEditorChange };
+    triggerFrontMarkerUpdate();
+  };
+
+  const removeMarker = session => {
+    if (session && session[HEX_COLOR_MARKER_KEY]) {
+      const { markerId, marker, handleSessionChange, handleEditorChange } = session[HEX_COLOR_MARKER_KEY];
+      if (typeof session.removeMarker === "function") {
+        session.removeMarker(markerId != null ? markerId : marker);
+      }
+      if (handleSessionChange) {
+        if (typeof session.off === "function") {
+          session.off("change", handleSessionChange);
+        } else if (typeof session.removeEventListener === "function") {
+          session.removeEventListener("change", handleSessionChange);
+        }
+      }
+      if (handleEditorChange && typeof editor.off === "function") {
+        editor.off("change", handleEditorChange);
+      }
+      delete session[HEX_COLOR_MARKER_KEY];
+      // prevent retaining stale regex state
+      if (marker && marker.regex) {
+        marker.regex.lastIndex = 0;
+      }
+    }
+  };
+
+  ensureMarker(editor.session);
+
+  const handleChangeSession = ({ oldSession, session }) => {
+    if (oldSession) {
+      removeMarker(oldSession);
+    }
+    ensureMarker(session);
+  };
+
+  editor.on("changeSession", handleChangeSession);
+
+  const detachListeners = () => {
+    if (typeof editor.off === "function") {
+      editor.off("changeSession", handleChangeSession);
+    } else if (typeof editor.removeListener === "function") {
+      editor.removeListener("changeSession", handleChangeSession);
+    }
+  };
+
+  const cleanup = () => {
+    detachListeners();
+    removeMarker(editor.session);
+  };
+
+  const destroyHandler = () => {
+    cleanup();
+    if (typeof editor.off === "function") {
+      editor.off("destroy", destroyHandler);
+    } else if (typeof editor.removeListener === "function") {
+      editor.removeListener("destroy", destroyHandler);
+    }
+  };
+
+  editor.on("destroy", destroyHandler);
+
+  return () => {
+    destroyHandler();
+  };
+};
+
 class App extends Component {
   htmlEditor = null;
   jadeEditor = null;
@@ -29,8 +306,11 @@ class App extends Component {
   resizeListenersAttached = false;
   cachedSplitRect = null;
   currentSplitRect = null;
+  controlsResizeRaf = null;
   isSyncingEditorScroll = false;
   detachScrollSync = null;
+  htmlColorPreviewDetach = null;
+  jadeColorPreviewDetach = null;
 
   state = {
     HTMLCode,
@@ -50,21 +330,167 @@ class App extends Component {
     this.pug = window.pug;
   }
 
+  getControlsMetrics = () => {
+    const section = this.sectionRef.current;
+    const controls = this.floatingControlsRef.current;
+    if (!section || !controls) {
+      return null;
+    }
+    const sectionRect = section.getBoundingClientRect();
+    const controlsRect = controls.getBoundingClientRect();
+    const maxLeft = Math.max(0, sectionRect.width - controlsRect.width);
+    const maxTop = Math.max(0, sectionRect.height - controlsRect.height);
+    return { sectionRect, controlsRect, maxLeft, maxTop };
+  };
+
+  computeRatiosFromPixels = (position, metrics) => {
+    if (!metrics) {
+      return null;
+    }
+    const { maxLeft, maxTop } = metrics;
+    const leftRatio = maxLeft > 0 ? clamp(position.left / maxLeft, 0, 1) : 0;
+    const topRatio = maxTop > 0 ? clamp(position.top / maxTop, 0, 1) : 0;
+    return { leftRatio, topRatio };
+  };
+
+  computeControlsStyle = position => {
+    if (!position) {
+      return undefined;
+    }
+    const metrics = this.getControlsMetrics();
+    if (!metrics) {
+      return undefined;
+    }
+    const { maxLeft, maxTop } = metrics;
+    const leftRatio = typeof position.leftRatio === "number" ? clamp(position.leftRatio, 0, 1) : 0;
+    const topRatio = typeof position.topRatio === "number" ? clamp(position.topRatio, 0, 1) : 0;
+    const leftPx = maxLeft > 0 ? leftRatio * maxLeft : 0;
+    const topPx = maxTop > 0 ? topRatio * maxTop : 0;
+    return {
+      top: `${Math.round(topPx)}px`,
+      left: `${Math.round(leftPx)}px`,
+      right: "auto",
+      bottom: "auto",
+      transform: "none"
+    };
+  };
+
+  normalizeSavedControlsPosition = saved => {
+    if (!saved) {
+      return null;
+    }
+    const metrics = this.getControlsMetrics();
+    if (!metrics) {
+      return null;
+    }
+    if (
+      typeof saved.leftRatio === "number" &&
+      typeof saved.topRatio === "number"
+    ) {
+      return {
+        leftRatio: clamp(saved.leftRatio, 0, 1),
+        topRatio: clamp(saved.topRatio, 0, 1)
+      };
+    }
+    if (typeof saved.left === "number" && typeof saved.top === "number") {
+      return this.computeRatiosFromPixels(saved, metrics);
+    }
+    return null;
+  };
+
+  restoreControlsPosition = saved => {
+    const normalized = this.normalizeSavedControlsPosition(saved);
+    if (normalized) {
+      this.setState({ controlsPosition: normalized }, () => {
+        // Persist in the new format so future loads reuse ratios.
+        this.persistControlsPosition();
+        this.scheduleControlsReflow();
+      });
+      return true;
+    }
+    return false;
+  };
+
+  reflowControlsPosition = () => {
+    this.setState(prevState => {
+      const current = prevState.controlsPosition;
+      if (!current) {
+        return null;
+      }
+      const metrics = this.getControlsMetrics();
+      if (!metrics) {
+        return null;
+      }
+      const clampedLeftRatio = clamp(
+        typeof current.leftRatio === "number" ? current.leftRatio : 0,
+        0,
+        1
+      );
+      const clampedTopRatio = clamp(
+        typeof current.topRatio === "number" ? current.topRatio : 0,
+        0,
+        1
+      );
+      const pixelPosition = {
+        left: metrics.maxLeft > 0 ? clampedLeftRatio * metrics.maxLeft : 0,
+        top: metrics.maxTop > 0 ? clampedTopRatio * metrics.maxTop : 0
+      };
+      const ratios = this.computeRatiosFromPixels(pixelPosition, metrics);
+      if (!ratios) {
+        return null;
+      }
+      return {
+        controlsPosition: {
+          leftRatio: ratios.leftRatio,
+          topRatio: ratios.topRatio
+        }
+      };
+    }, () => {
+      this.persistControlsPosition();
+    });
+  };
+
+  scheduleControlsReflow = () => {
+    if (typeof window === "undefined") {
+      this.reflowControlsPosition();
+      return;
+    }
+    if (typeof window.requestAnimationFrame !== "function") {
+      this.reflowControlsPosition();
+      return;
+    }
+    if (this.controlsResizeRaf != null) {
+      return;
+    }
+    this.controlsResizeRaf = window.requestAnimationFrame(() => {
+      this.controlsResizeRaf = null;
+      this.reflowControlsPosition();
+    });
+  };
+
+  handleWindowResize = () => {
+    if (!this.state.controlsPosition) {
+      return;
+    }
+    this.scheduleControlsReflow();
+  };
+
   componentDidMount() {
     document.addEventListener("mousemove", this.handleDocumentMouseMove);
     document.addEventListener("mouseup", this.handleDocumentMouseUp);
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("resize", this.handleWindowResize);
+    }
     try {
       const savedControls = window.localStorage.getItem(
         CONTROLS_STORAGE_KEY
       );
       if (savedControls) {
         const parsed = JSON.parse(savedControls);
-        if (
-          parsed &&
-          typeof parsed.top === "number" &&
-          typeof parsed.left === "number"
-        ) {
-          this.setState({ controlsPosition: parsed });
+        if (!this.restoreControlsPosition(parsed) && typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(() => {
+            this.restoreControlsPosition(parsed);
+          });
         }
       }
       const savedWidth = window.localStorage.getItem(PUG_WIDTH_STORAGE_KEY);
@@ -100,15 +526,31 @@ class App extends Component {
     } catch (error) {
       // Storage might be unavailable; ignore and fall back to defaults.
     }
+    this.scheduleControlsReflow();
   }
 
   componentWillUnmount() {
     document.removeEventListener("mousemove", this.handleDocumentMouseMove);
     document.removeEventListener("mouseup", this.handleDocumentMouseUp);
+    if (typeof window !== "undefined" && typeof window.removeEventListener === "function") {
+      window.removeEventListener("resize", this.handleWindowResize);
+    }
+    if (this.controlsResizeRaf != null && typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
+      window.cancelAnimationFrame(this.controlsResizeRaf);
+      this.controlsResizeRaf = null;
+    }
     this.removeResizeListeners();
     if (this.detachScrollSync) {
       this.detachScrollSync();
       this.detachScrollSync = null;
+    }
+    if (this.htmlColorPreviewDetach) {
+      this.htmlColorPreviewDetach();
+      this.htmlColorPreviewDetach = null;
+    }
+    if (this.jadeColorPreviewDetach) {
+      this.jadeColorPreviewDetach();
+      this.jadeColorPreviewDetach = null;
     }
   }
 
@@ -119,6 +561,9 @@ class App extends Component {
     ) {
       this.syncEditorSession(this.htmlEditor);
       this.syncEditorSession(this.jadeEditor);
+    }
+    if (!prevState.controlsPosition && this.state.controlsPosition) {
+      this.scheduleControlsReflow();
     }
   }
 
@@ -461,6 +906,19 @@ class App extends Component {
       x: event.clientX - controlsRect.left,
       y: event.clientY - controlsRect.top
     };
+    const metrics = {
+      sectionRect,
+      controlsRect,
+      maxLeft: Math.max(0, sectionRect.width - controlsRect.width),
+      maxTop: Math.max(0, sectionRect.height - controlsRect.height)
+    };
+    const defaultRatios = this.computeRatiosFromPixels(
+      {
+        left: controlsRect.left - sectionRect.left,
+        top: controlsRect.top - sectionRect.top
+      },
+      metrics
+    );
     this.setState(prevState => {
       const existingPosition = prevState.controlsPosition;
       return {
@@ -468,10 +926,7 @@ class App extends Component {
         controlsPosition:
           existingPosition !== null && existingPosition !== undefined
             ? existingPosition
-            : {
-                left: controlsRect.left - sectionRect.left,
-                top: controlsRect.top - sectionRect.top
-              }
+            : defaultRatios || existingPosition
       };
     });
     event.preventDefault();
@@ -488,18 +943,27 @@ class App extends Component {
     }
     const sectionRect = section.getBoundingClientRect();
     const controlsRect = controls.getBoundingClientRect();
-    const maxLeft = sectionRect.width - controlsRect.width;
-    const maxTop = sectionRect.height - controlsRect.height;
+    const maxLeft = Math.max(0, sectionRect.width - controlsRect.width);
+    const maxTop = Math.max(0, sectionRect.height - controlsRect.height);
     let nextLeft = event.clientX - sectionRect.left - this.dragOffset.x;
     let nextTop = event.clientY - sectionRect.top - this.dragOffset.y;
     nextLeft = Math.min(Math.max(0, nextLeft), Math.max(0, maxLeft));
     nextTop = Math.min(Math.max(0, nextTop), Math.max(0, maxTop));
-    this.setState({
-      controlsPosition: {
-        left: nextLeft,
-        top: nextTop
-      }
-    });
+    const metrics = {
+      sectionRect,
+      controlsRect,
+      maxLeft,
+      maxTop
+    };
+    const ratios = this.computeRatiosFromPixels(
+      { left: nextLeft, top: nextTop },
+      metrics
+    );
+    if (ratios) {
+      this.setState({
+        controlsPosition: ratios
+      });
+    }
   };
 
   handleDocumentMouseUp = () => {
@@ -513,10 +977,18 @@ class App extends Component {
   persistControlsPosition = () => {
     try {
       const { controlsPosition } = this.state;
-      if (controlsPosition) {
+      if (
+        controlsPosition &&
+        typeof controlsPosition.leftRatio === "number" &&
+        typeof controlsPosition.topRatio === "number"
+      ) {
+        const payload = {
+          leftRatio: clamp(controlsPosition.leftRatio, 0, 1),
+          topRatio: clamp(controlsPosition.topRatio, 0, 1)
+        };
         window.localStorage.setItem(
           CONTROLS_STORAGE_KEY,
-          JSON.stringify(controlsPosition)
+          JSON.stringify(payload)
         );
       } else {
         window.localStorage.removeItem(CONTROLS_STORAGE_KEY);
@@ -633,15 +1105,12 @@ class App extends Component {
       scrollPastEnd: 0.5
     };
 
-    const controlsStyle = controlsPosition
-      ? {
-          top: `${controlsPosition.top}px`,
-          left: `${controlsPosition.left}px`,
-          right: "auto",
-          bottom: "auto",
-          transform: "none"
-        }
+    const computedControlsStyle = controlsPosition
+      ? this.computeControlsStyle(controlsPosition)
       : undefined;
+    const hasCustomControlsPosition = Boolean(
+      controlsPosition && computedControlsStyle
+    );
 
     const htmlWidthRatio = 1 - pugWidthRatio;
     const splitHandleStyle = {
@@ -654,9 +1123,9 @@ class App extends Component {
           <div
             className={`floating-controls${
               isControlsDragging ? " is-dragging" : ""
-            }${controlsPosition ? " has-custom-position" : ""}`}
+            }${hasCustomControlsPosition ? " has-custom-position" : ""}`}
             ref={this.floatingControlsRef}
-            style={controlsStyle}
+            style={computedControlsStyle}
             onMouseDown={this.onControlsMouseDown}
           >
             <div className="controls-heading">
@@ -736,6 +1205,10 @@ class App extends Component {
                   this.htmlEditor = editor;
                   this.syncEditorSession(editor);
                   this.initializeScrollSync();
+                  if (this.htmlColorPreviewDetach) {
+                    this.htmlColorPreviewDetach();
+                  }
+                  this.htmlColorPreviewDetach = registerHexColorPreview(editor);
                 }}
                 fontSize={18}
                 tabSize={tabSize}
@@ -762,6 +1235,10 @@ class App extends Component {
                   this.jadeEditor = editor;
                   this.syncEditorSession(editor);
                   this.initializeScrollSync();
+                  if (this.jadeColorPreviewDetach) {
+                    this.jadeColorPreviewDetach();
+                  }
+                  this.jadeColorPreviewDetach = registerHexColorPreview(editor);
                 }}
                 fontSize={18}
                 tabSize={tabSize}
