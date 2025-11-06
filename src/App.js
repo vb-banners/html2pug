@@ -2,6 +2,7 @@ import React, { Component } from "react";
 import beautify from "js-beautify";
 import pugBeautify from "pug-beautify";
 import AceEditor from "react-ace";
+import { optimize } from "./vendor/svgo-browser.esm";
 import "brace/mode/html";
 import "brace/mode/xml";
 import "brace/mode/jade";
@@ -9,6 +10,12 @@ import "./themes/ayu-mirage-custom";
 import { HTMLCode, JADECode } from "./template";
 import "./App.css";
 import "./fonts.css";
+import {
+  SVGO_PLUGIN_OPTIONS,
+  getDefaultSvgoSettings,
+  mergeSvgoSettings,
+  PRECISION_LIMITS
+} from "./svgo-config";
 
 const CONTROLS_STORAGE_KEY = "html2pug:floatingControls";
 const PUG_WIDTH_STORAGE_KEY = "html2pug:pugPaneWidth";
@@ -18,6 +25,8 @@ const SPLIT_RESIZE_TOLERANCE = 14;
 const HTML_CODE_STORAGE_KEY = "html2pug:htmlCode";
 const JADE_CODE_STORAGE_KEY = "html2pug:jadeCode";
 const ID_TO_CLASS_STORAGE_KEY = "html2pug:idToClassToggle";
+const SVGO_SETTINGS_STORAGE_KEY = "html2pug:svgoSettings";
+const SVGO_ENABLED_STORAGE_KEY = "html2pug:svgoEnabled";
 
 const HEX_COLOR_MARKER_KEY = "__hexColorPreviewMarker";
 const HEX_COLOR_REGEX_SOURCE = "#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})(?![0-9a-fA-F])";
@@ -302,6 +311,7 @@ class App extends Component {
   floatingControlsRef = React.createRef();
   sectionRef = React.createRef();
   splitRef = React.createRef();
+  svgoControlsRef = React.createRef();
   dragOffset = { x: 0, y: 0 };
   resizeListenersAttached = false;
   cachedSplitRect = null;
@@ -321,7 +331,10 @@ class App extends Component {
     controlsPosition: null,
     isControlsDragging: false,
     pugWidthRatio: 0.5,
-    isResizingSplit: false
+    isResizingSplit: false,
+    svgoSettings: getDefaultSvgoSettings(),
+    isSvgoEnabled: true,
+    isSvgoMenuOpen: false
   };
 
   constructor() {
@@ -479,21 +492,12 @@ class App extends Component {
     document.addEventListener("mousemove", this.handleDocumentMouseMove);
     document.addEventListener("mouseup", this.handleDocumentMouseUp);
     document.addEventListener("focusin", this.handleDocumentFocusIn, true);
+    document.addEventListener("pointerdown", this.handleDocumentPointerDown);
     if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
       window.addEventListener("resize", this.handleWindowResize);
     }
     try {
-      const savedControls = window.localStorage.getItem(
-        CONTROLS_STORAGE_KEY
-      );
-      if (savedControls) {
-        const parsed = JSON.parse(savedControls);
-        if (!this.restoreControlsPosition(parsed) && typeof window.requestAnimationFrame === "function") {
-          window.requestAnimationFrame(() => {
-            this.restoreControlsPosition(parsed);
-          });
-        }
-      }
+      window.localStorage.removeItem(CONTROLS_STORAGE_KEY);
       const savedWidth = window.localStorage.getItem(PUG_WIDTH_STORAGE_KEY);
       if (savedWidth) {
         const parsedWidth = parseFloat(savedWidth);
@@ -511,6 +515,12 @@ class App extends Component {
       const savedIdToClass = window.localStorage.getItem(
         ID_TO_CLASS_STORAGE_KEY
       );
+      const savedSvgoSettings = window.localStorage.getItem(
+        SVGO_SETTINGS_STORAGE_KEY
+      );
+      const savedSvgoEnabled = window.localStorage.getItem(
+        SVGO_ENABLED_STORAGE_KEY
+      );
       const restoredState = {};
       if (typeof savedHtmlCode === "string") {
         restoredState.HTMLCode = savedHtmlCode;
@@ -520,6 +530,13 @@ class App extends Component {
       }
       if (savedIdToClass === "true" || savedIdToClass === "false") {
         restoredState.enableSvgIdToClass = savedIdToClass === "true";
+      }
+      if (savedSvgoSettings) {
+        const parsedSvgo = JSON.parse(savedSvgoSettings);
+        restoredState.svgoSettings = mergeSvgoSettings(parsedSvgo);
+      }
+      if (savedSvgoEnabled === "true" || savedSvgoEnabled === "false") {
+        restoredState.isSvgoEnabled = savedSvgoEnabled === "true";
       }
       if (Object.keys(restoredState).length > 0) {
         this.setState(restoredState);
@@ -537,6 +554,7 @@ class App extends Component {
     if (typeof window !== "undefined" && typeof window.removeEventListener === "function") {
       window.removeEventListener("resize", this.handleWindowResize);
     }
+    document.removeEventListener("pointerdown", this.handleDocumentPointerDown);
     if (this.controlsResizeRaf != null && typeof window !== "undefined" && typeof window.cancelAnimationFrame === "function") {
       window.cancelAnimationFrame(this.controlsResizeRaf);
       this.controlsResizeRaf = null;
@@ -606,6 +624,236 @@ class App extends Component {
     } catch (error) {
       // Ignore persistence issues.
     }
+  };
+
+  persistSvgoSettings = settings => {
+    try {
+      const payload = settings || this.state.svgoSettings;
+      window.localStorage.setItem(
+        SVGO_SETTINGS_STORAGE_KEY,
+        JSON.stringify(payload)
+      );
+    } catch (error) {
+      // Ignore persistence issues.
+    }
+  };
+
+  persistSvgoEnabled = isEnabled => {
+    try {
+      window.localStorage.setItem(
+        SVGO_ENABLED_STORAGE_KEY,
+        isEnabled ? "true" : "false"
+      );
+    } catch (error) {
+      // Ignore persistence issues.
+    }
+  };
+
+  handleSvgoToggle = event => {
+    const nextEnabled = Boolean(event.target.checked);
+    this.setState(
+      {
+        isSvgoEnabled: nextEnabled
+      },
+      () => {
+        this.persistSvgoEnabled(nextEnabled);
+        this.updateJADE();
+      }
+    );
+  };
+
+  handleSvgoGlobalCheckboxChange = event => {
+    const { name, checked } = event.target;
+    this.setState(
+      prevState => {
+        if (!name) {
+          return null;
+        }
+        const nextSettings = {
+          ...prevState.svgoSettings,
+          [name]: checked
+        };
+        return {
+          svgoSettings: nextSettings
+        };
+      },
+      () => {
+        this.persistSvgoSettings();
+        this.updateJADE();
+      }
+    );
+  };
+
+  handleSvgoPrecisionChange = event => {
+    const { name, value } = event.target;
+    this.setState(
+      prevState => {
+        if (!name) {
+          return null;
+        }
+        const numeric = Number(value);
+        if (!Number.isFinite(numeric)) {
+          return null;
+        }
+        const nextSettings = {
+          ...prevState.svgoSettings,
+          [name]: clamp(
+            numeric,
+            PRECISION_LIMITS.min,
+            PRECISION_LIMITS.max
+          )
+        };
+        return {
+          svgoSettings: nextSettings
+        };
+      },
+      () => {
+        this.persistSvgoSettings();
+        this.updateJADE();
+      }
+    );
+  };
+
+  handleSvgoPluginToggle = event => {
+    const { name, checked } = event.target;
+    if (!name) {
+      return;
+    }
+    this.setState(
+      prevState => {
+        if (!prevState.svgoSettings || !prevState.svgoSettings.plugins) {
+          return null;
+        }
+        const nextPlugins = {
+          ...prevState.svgoSettings.plugins,
+          [name]: checked
+        };
+        return {
+          svgoSettings: {
+            ...prevState.svgoSettings,
+            plugins: nextPlugins
+          }
+        };
+      },
+      () => {
+        this.persistSvgoSettings();
+        this.updateJADE();
+      }
+    );
+  };
+
+  toggleSvgoMenu = () => {
+    this.setState(prevState => ({
+      isSvgoMenuOpen: !prevState.isSvgoMenuOpen
+    }));
+  };
+
+  closeSvgoMenu = () => {
+    this.setState({ isSvgoMenuOpen: false });
+  };
+
+  handleDocumentPointerDown = event => {
+    if (!this.state.isSvgoMenuOpen) {
+      return;
+    }
+    const controls = this.svgoControlsRef.current;
+    if (controls && controls.contains(event.target)) {
+      return;
+    }
+    this.closeSvgoMenu();
+  };
+
+  buildSvgoConfig = settings => {
+    const floatPrecision = Number(settings.floatPrecision);
+    const transformPrecision = Number(settings.transformPrecision);
+    const plugins = [];
+
+    for (const option of SVGO_PLUGIN_OPTIONS) {
+      const enabled = Boolean(settings.plugins[option.id]);
+      if (!enabled) {
+        plugins.push({ name: option.id, active: false });
+        continue;
+      }
+
+      const plugin = {
+        name: option.id,
+        params: {}
+      };
+
+      if (Number.isFinite(floatPrecision)) {
+        plugin.params.floatPrecision =
+          plugin.name === "cleanupNumericValues" && floatPrecision === 0
+            ? 1
+            : floatPrecision;
+      }
+
+      if (Number.isFinite(transformPrecision)) {
+        plugin.params.transformPrecision = transformPrecision;
+      }
+
+      plugins.push(plugin);
+    }
+
+    return {
+      multipass: Boolean(settings.multipass),
+      plugins,
+      js2svg: {
+        pretty: Boolean(settings.pretty),
+        indent: 2
+      }
+    };
+  };
+
+  applySvgoOptimizations = (source, settings) => {
+    const html = typeof source === "string" ? source : "";
+    if (!html.trim()) {
+      return html;
+    }
+
+    const fragmentPattern = /<svg[\s\S]*?<\/svg>/gi;
+    if (!fragmentPattern.test(html)) {
+      return html;
+    }
+    fragmentPattern.lastIndex = 0;
+
+    const activeSettings = settings || this.state.svgoSettings || getDefaultSvgoSettings();
+    const config = this.buildSvgoConfig(activeSettings);
+
+    let optimized = "";
+    let lastIndex = 0;
+    let match;
+
+    while ((match = fragmentPattern.exec(html)) !== null) {
+      optimized += html.slice(lastIndex, match.index);
+      let fragment = match[0];
+      try {
+        const result = optimize(fragment, config);
+        if (result && typeof result.data === "string") {
+          fragment = result.data;
+        }
+      } catch (error) {
+        // Optimization failed; keep original HTML to avoid disrupting the workflow.
+        return html;
+      }
+      optimized += fragment;
+      lastIndex = match.index + match[0].length;
+    }
+
+    optimized += html.slice(lastIndex);
+    return optimized;
+  };
+
+  handleSvgoReset = () => {
+    const defaults = getDefaultSvgoSettings();
+    this.setState(
+      {
+        svgoSettings: defaults
+      },
+      () => {
+        this.persistSvgoSettings(defaults);
+        this.updateJADE();
+      }
+    );
   };
 
   ensureControlReference = element => {
@@ -855,8 +1103,8 @@ class App extends Component {
   onHTMLChage = newCode => {
     this.setState({ HTMLCode: newCode }, () => {
       this.persistHTMLCode(newCode);
+      this.updateJADE();
     });
-    this.updateJADE();
   };
 
   onIndentTypeChange = event => {
@@ -938,21 +1186,26 @@ class App extends Component {
   };
 
   updateJADE = () => {
-    const { HTMLCode } = this.state;
-    const isBodyless = !this.findHTMLOrBodyTag(HTMLCode);
-    const options = {
-      bodyless: isBodyless,
-      donotencode: true
-    };
-
-    if (HTMLCode === "") {
+    const { HTMLCode, isSvgoEnabled, svgoSettings } = this.state;
+    const sourceHtml = typeof HTMLCode === "string" ? HTMLCode : "";
+    if (!sourceHtml.trim()) {
       this.setState({ JADECode: "" }, () => {
         this.persistJadeCode("");
       });
       return;
     }
 
-    const html = HTMLCode.replace(/template/g, "template_");
+    const optimizedHtml = isSvgoEnabled
+      ? this.applySvgoOptimizations(sourceHtml, svgoSettings)
+      : sourceHtml;
+
+    const isBodyless = !this.findHTMLOrBodyTag(optimizedHtml);
+    const options = {
+      bodyless: isBodyless,
+      donotencode: true
+    };
+
+    const html = optimizedHtml.replace(/template/g, "template_");
     this.Html2Jade.convertHtml(html, options, (err, jade) => {
       if (err) {
         return;
@@ -1183,7 +1436,20 @@ class App extends Component {
   };
 
   render() {
-    const { tabSize, useSoftTabs, controlsPosition, pugWidthRatio, isControlsDragging, isResizingSplit, enableSvgIdToClass } = this.state;
+    const {
+      tabSize,
+      useSoftTabs,
+      pugWidthRatio,
+      isResizingSplit,
+      enableSvgIdToClass,
+      svgoSettings,
+      isSvgoEnabled,
+      isSvgoMenuOpen
+    } = this.state;
+
+    const activeSvgoSettings = svgoSettings || getDefaultSvgoSettings();
+    const precisionMin = PRECISION_LIMITS.min;
+    const precisionMax = PRECISION_LIMITS.max;
     const options = {
       showLineNumbers: true,
       showGutter: true,
@@ -1195,12 +1461,63 @@ class App extends Component {
       scrollPastEnd: 0.5
     };
 
-    const computedControlsStyle = controlsPosition
-      ? this.computeControlsStyle(controlsPosition)
-      : undefined;
-    const hasCustomControlsPosition = Boolean(
-      controlsPosition && computedControlsStyle
-    );
+    const renderToggle = (label, name, checked, onChange, variant = "default") => {
+      const classNames = ["svgo-toggle"];
+      if (checked) {
+        classNames.push("is-active");
+      }
+      if (variant === "compact") {
+        classNames.push("svgo-toggle--compact");
+      }
+
+      return (
+        <label key={name} className={classNames.join(" ")}>
+          <input
+            className="svgo-toggle__input"
+            type="checkbox"
+            name={name}
+            checked={checked}
+            onChange={onChange}
+          />
+          <span className="svgo-toggle__track" aria-hidden="true">
+            <span className="svgo-toggle__thumb" />
+          </span>
+          <span className="svgo-toggle__text">{label}</span>
+        </label>
+      );
+    };
+
+    const renderSlider = (label, name, value, onChange) => {
+      const sliderId = `svgo-slider-${name}`;
+      return (
+        <div key={name} className="svgo-slider">
+          <div className="svgo-slider__header">
+            <label className="svgo-slider__label" htmlFor={sliderId}>
+              {label}
+            </label>
+            <span className="svgo-slider__value">{value}</span>
+          </div>
+          <input
+            id={sliderId}
+            className="svgo-slider__input"
+            type="range"
+            name={name}
+            min={precisionMin}
+            max={precisionMax}
+            step="1"
+            value={value}
+            onChange={onChange}
+          />
+        </div>
+      );
+    };
+
+    const globalToggleItems = [
+      { label: "Show original", name: "showOriginal" },
+      { label: "Compare gzipped", name: "compareGzipped" },
+      { label: "Prettify markup", name: "pretty" },
+      { label: "Multipass", name: "multipass" }
+    ];
 
     const htmlWidthRatio = 1 - pugWidthRatio;
     const splitHandleStyle = {
@@ -1211,12 +1528,8 @@ class App extends Component {
       <React.Fragment>
         <section ref={this.sectionRef}>
           <div
-            className={`floating-controls${
-              isControlsDragging ? " is-dragging" : ""
-            }${hasCustomControlsPosition ? " has-custom-position" : ""}`}
+            className="floating-controls"
             ref={this.floatingControlsRef}
-            style={computedControlsStyle}
-            onMouseDown={this.onControlsMouseDown}
           >
             <div className="controls-heading">
               <span className="logo">HTML to PUG</span>
@@ -1276,6 +1589,110 @@ class App extends Component {
                 />
                 <span>Id to Class</span>
               </label>
+              <div className="svgo-controls-group" ref={this.svgoControlsRef}>
+                <label className="svgo-toggle-control">
+                  <input
+                    type="checkbox"
+                    name="svgoEnabled"
+                    checked={isSvgoEnabled}
+                    onChange={this.handleSvgoToggle}
+                    aria-label="Toggle SVGO optimization"
+                  />
+                  <span>SVGO</span>
+                </label>
+                <div className={`svgo-controls${isSvgoMenuOpen ? " is-open" : ""}`}>
+                  <button
+                    type="button"
+                    className="svgo-settings-button"
+                    onClick={this.toggleSvgoMenu}
+                    aria-haspopup="dialog"
+                    aria-expanded={isSvgoMenuOpen}
+                  >
+                  <span className="svgo-settings-button__icon" aria-hidden="true">
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M11.078 1.191a1 1 0 0 0-1.156 0l-1.25.886a1 1 0 0 1-.516.155H6.437a1 1 0 0 0-.95.69l-.39 1.214a1 1 0 0 1-.25.407l-1 .98a1 1 0 0 0 .002 1.446l1 .981a1 1 0 0 1 .25.407l.39 1.213a1 1 0 0 0 .95.691h1.719a1 1 0 0 1 .516.155l1.25.885a1 1 0 0 0 1.156 0l1.25-.885a1 1 0 0 1 .516-.155h1.719a1 1 0 0 0 .95-.69l.39-1.214a1 1 0 0 1 .25-.407l1-.98a1 1 0 0 0-.002-1.445l-1-.982a1 1 0 0 1-.25-.407l-.39-1.213a1 1 0 0 0-.95-.691h-1.719a1 1 0 0 1-.516-.155l-1.25-.885z"
+                      />
+                      <path
+                        fillRule="evenodd"
+                        clipRule="evenodd"
+                        d="M12 8.5a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0z"
+                      />
+                    </svg>
+                  </span>
+                  <span className="svgo-settings-button__text">SVGO Settings</span>
+                  </button>
+                  {isSvgoMenuOpen && (
+                    <div
+                      className="svgo-popup"
+                      role="dialog"
+                      aria-label="SVGO configuration"
+                      onClick={event => event.stopPropagation()}
+                    >
+                      <div className="svgo-popup__content">
+                        <section className="svgo-popup__group">
+                          <div className="svgo-popup__group-heading">Global settings</div>
+                          <div className="svgo-popup__toggles">
+                            {globalToggleItems.map(item =>
+                              renderToggle(
+                                item.label,
+                                item.name,
+                                Boolean(activeSvgoSettings[item.name]),
+                                this.handleSvgoGlobalCheckboxChange
+                              )
+                            )}
+                          </div>
+                          <div className="svgo-popup__sliders">
+                            {renderSlider(
+                              "Number precision",
+                              "floatPrecision",
+                              activeSvgoSettings.floatPrecision,
+                              this.handleSvgoPrecisionChange
+                            )}
+                            {renderSlider(
+                              "Transform precision",
+                              "transformPrecision",
+                              activeSvgoSettings.transformPrecision,
+                              this.handleSvgoPrecisionChange
+                            )}
+                          </div>
+                        </section>
+                        <section className="svgo-popup__group">
+                          <div className="svgo-popup__group-heading">Features</div>
+                          <div className="svgo-popup__features">
+                            {SVGO_PLUGIN_OPTIONS.map(option =>
+                              renderToggle(
+                                option.name,
+                                option.id,
+                                Boolean(activeSvgoSettings.plugins[option.id]),
+                                this.handleSvgoPluginToggle,
+                                "compact"
+                              )
+                            )}
+                          </div>
+                        </section>
+                          <div className="svgo-popup__actions">
+                            <button
+                              type="button"
+                              className="svgo-popup__reset"
+                              onClick={this.handleSvgoReset}
+                            >
+                              Reset All
+                            </button>
+                          </div>
+                        </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
           <div
