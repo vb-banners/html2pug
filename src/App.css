@@ -251,6 +251,56 @@ footer {
   gap: 20px;
 }
 
+.floating-controls .open-file-control {
+  position: relative;
+  cursor: pointer;
+}
+
+.floating-controls .open-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.floating-controls .open-file-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid #343d4c;
+  background: #1f2430;
+  color: #cbccc6;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  line-height: 1;
+  margin-top: 0;
+}
+
+.floating-controls .open-file-button svg {
+  flex-shrink: 0;
+}
+
+.floating-controls .open-file-control:hover .open-file-button {
+  background: #232a3a;
+  border-color: #3f495c;
+}
+
+.floating-controls .open-file-control:focus-within .open-file-button {
+  border-color: #73d0ff;
+  box-shadow: 0 0 0 2px rgba(115, 208, 255, 0.25);
+}
+
 .floating-controls .setting.controls > label,
 .floating-controls .svgo-toggle-control {
   display: flex;
