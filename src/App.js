@@ -496,6 +496,7 @@ class App extends Component {
     document.addEventListener("mousemove", this.handleDocumentMouseMove);
     document.addEventListener("mouseup", this.handleDocumentMouseUp);
     document.addEventListener("pointerdown", this.handleDocumentPointerDown);
+    document.addEventListener("keydown", this.handleKeyDown);
     if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
       window.addEventListener("resize", this.handleWindowResize);
     }
@@ -577,6 +578,7 @@ class App extends Component {
   componentWillUnmount() {
     document.removeEventListener("mousemove", this.handleDocumentMouseMove);
     document.removeEventListener("mouseup", this.handleDocumentMouseUp);
+    document.removeEventListener("keydown", this.handleKeyDown);
     if (typeof window !== "undefined" && typeof window.removeEventListener === "function") {
       window.removeEventListener("resize", this.handleWindowResize);
     }
@@ -1030,27 +1032,79 @@ class App extends Component {
     });
   };
 
+  handleNewTab = () => {
+    const fileId = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const newFile = {
+      id: fileId,
+      name: "Untitled",
+      htmlContent: "",
+      jadeContent: ""
+    };
+
+    this.setState(prevState => {
+      const openFiles = [...prevState.openFiles, newFile];
+      return {
+        openFiles,
+        activeFileId: fileId,
+        HTMLCode: "",
+        JADECode: ""
+      };
+    }, () => {
+      this.persistHTMLCode("");
+      this.persistJadeCode("");
+      this.persistOpenFiles();
+      this.persistActiveFileId();
+    });
+  };
+
+  handleKeyDown = event => {
+    const key = event.key ? event.key.toLowerCase() : '';
+    const code = event.code || '';
+    
+    // Option+Command+T (Mac) or Alt+Ctrl+T (Windows/Linux) to create a new tab
+    if ((event.metaKey || event.ctrlKey) && event.altKey && (key === 't' || code === 'KeyT')) {
+      event.preventDefault();
+      event.stopPropagation();
+      this.handleNewTab();
+      return false;
+    }
+    
+    // Option+Command+O (Mac) or Alt+Ctrl+O (Windows/Linux) to open files
+    if ((event.metaKey || event.ctrlKey) && event.altKey && (key === 'o' || code === 'KeyO')) {
+      event.preventDefault();
+      event.stopPropagation();
+      // Trigger the file input click
+      const fileInput = document.getElementById('open-file-input');
+      if (fileInput) {
+        fileInput.click();
+      }
+      return false;
+    }
+  };
+
   formatTabLabel = name => {
     if (!name || typeof name !== "string") {
       return "";
     }
-
-    const MAX_LENGTH = 34;
-    const ELLIPSIS = "...";
+    
+    const MAX_LENGTH = 22;
+    
     if (name.length <= MAX_LENGTH) {
       return name;
     }
-
+    
+    // Extract the file extension
     const extensionMatch = name.match(/(\.[^./\\]+)$/);
     const extension = extensionMatch ? extensionMatch[1] : "";
-    const maxTailLength = MAX_LENGTH - ELLIPSIS.length;
-    const tailBaseLength = Math.max(extension.length + 4, 8);
-    const tailLength = Math.min(Math.max(tailBaseLength, extension.length), maxTailLength);
-    const tail = name.slice(-tailLength);
-    const availableForStart = Math.max(maxTailLength - tail.length, 1);
-    const start = name.slice(0, availableForStart);
-
-    return `${start}${ELLIPSIS}${tail}`;
+    
+    // Show first 7 chars, ellipsis, then last 12 chars (including extension)
+    const startChars = 7;
+    const endChars = 12;
+    
+    const start = name.slice(0, startChars);
+    const end = name.slice(-endChars);
+    
+    return `${start}...${end}`;
   };
 
   initializeScrollSync = () => {
@@ -2011,6 +2065,29 @@ class App extends Component {
                   </button>
                 </div>
               ))}
+              <button
+                type="button"
+                className="tab-bar__new-tab"
+                onClick={this.handleNewTab}
+                aria-label="New tab"
+                title="New tab"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M12 5v14M5 12h14"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
             </div>
           )}
           <div

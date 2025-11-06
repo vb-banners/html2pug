@@ -813,8 +813,8 @@ footer {
 .tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 18px;
+  gap: 6px;
+  padding: 10px 12px 10px 18px;
   background: transparent;
   border-right: 1px solid #2c3750;
   color: #8f9bb8;
@@ -826,8 +826,8 @@ footer {
   transition: background 0.15s ease, color 0.15s ease;
   white-space: nowrap;
   position: relative;
-  min-width: 148px;
-  max-width: 280px;
+  min-width: 140px;
+  max-width: 240px;
 }
 
 .tab:hover {
@@ -853,13 +853,12 @@ footer {
 
 .tab__name {
   flex: 1 1 auto;
-  display: flex;
-  align-items: center;
+  display: block;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   line-height: 1.2;
-  padding-right: 4px;
+  padding-right: 0;
+  min-width: 0;
 }
 
 .tab__close {
@@ -898,6 +897,41 @@ footer {
 }
 
 .tab__close svg {
+  display: block;
+}
+
+.tab-bar__new-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #8f9bb8;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  border-right: 1px solid #2c3750;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.tab-bar__new-tab:hover {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--accent-color);
+}
+
+.tab-bar__new-tab:focus {
+  outline: none;
+}
+
+.tab-bar__new-tab:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-bar__new-tab svg {
   display: block;
 }
 
