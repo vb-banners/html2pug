@@ -23,9 +23,16 @@ A real-time online converter that transforms HTML code into PUG (formerly Jade) 
 ### Advanced Features
 - **SVGO Integration**: 
   - Optional SVG optimization with customizable settings
-  - Fine-grained control over optimization plugins
+  - Fine-grained control over 50+ optimization plugins
   - Adjustable precision for numbers and transforms
+  - Multipass optimization for maximum compression
+  - Hover hints explaining each plugin's function
 - **SVG ID to Class Conversion**: Convert SVG `id` attributes to `class` attributes
+- **PUG Size Variables**: Automatically convert width/height to variables when matching viewBox
+- **Smart SVG Processing**:
+  - Color attributes (fill, stroke) always appear first in output
+  - Defs blocks automatically positioned at the beginning
+  - Auto-removal of rect elements matching filename
 - **Smart Formatting**: Automatic beautification of both HTML and PUG code
 - **Bodyless Mode**: Automatically detects and handles HTML snippets without `<html>` or `<body>` tags
 
@@ -98,13 +105,19 @@ Use the floating controls to customize your experience:
 
 ### SVGO Settings
 Click the "SVGO Settings" button to access advanced SVG optimization options:
-- **Global Settings**: Enable/disable multipass optimization and set precision
-- **Cleanup**: Remove doctype, comments, metadata, editor data, etc.
-- **Styles & Attributes**: Manage styles, classes, and attributes
-- **Structure**: Control element merging and grouping
-- **Paths & Shapes**: Optimize paths, shapes, and coordinates
-- **Numbers & Transforms**: Round numbers and optimize transforms
-- **SVG Attributes**: Manage viewBox, IDs, and other SVG-specific attributes
+- **Global Settings**: 
+  - **Multipass**: Run optimization up to 10 times for maximum compression
+  - **PUG Size Vars**: Convert width/height to variables when matching viewBox
+  - **Number Precision**: Control decimal precision (0-8)
+  - **Transform Precision**: Control transform precision (0-8)
+- **Cleanup**: Remove doctype, comments, metadata, editor data, hidden elements, etc.
+- **Styles & Attributes**: Clean up attributes, merge/inline styles, minify CSS
+- **Structure**: Optimize element grouping and hierarchy
+- **Paths & Shapes**: Convert shapes to paths, merge paths, optimize path data
+- **Numbers & Transforms**: Round coordinates and optimize transform matrices
+- **SVG Attributes**: Manage viewBox, xmlns, dimensions, and defaults
+
+All toggles feature helpful hover hints explaining their function.
 
 ## 🔧 Technologies Used
 
