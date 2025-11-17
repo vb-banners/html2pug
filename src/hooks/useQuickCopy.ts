@@ -18,12 +18,16 @@ export const useQuickCopy = (
 ) => {
   const hoverDisposableRef = useRef<monaco.IDisposable | null>(null);
   const clickDisposableRef = useRef<monaco.IDisposable | null>(null);
+  const selectionChangeDisposableRef = useRef<monaco.IDisposable | null>(null);
   const currentSelectionRef = useRef<monaco.Selection | null>(null);
   const lastHoverLineRef = useRef<number>(-1);
   const editorRef = useRef(editor);
   const multiSelectionsRef = useRef<Array<{ selection: monaco.Selection; text: string }>>([]);
   const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isHoveringRef = useRef(false);
+  const preventHoverRef = useRef(false);
+  const lockSelectionRef = useRef(false);
+  const lockedSelectionRef = useRef<monaco.Selection | null>(null);
   
   // Update editor ref when it changes
   useEffect(() => {
@@ -55,6 +59,40 @@ export const useQuickCopy = (
 
     // Show initial Quick Copy active message
     useAppStore.getState().setStatusMessage('Quick Copy is active');
+
+    // Add a listener to prevent selection changes when locked
+    selectionChangeDisposableRef.current = currentEditor.onDidChangeCursorSelection(() => {
+      if (lockSelectionRef.current) {
+        // Restore multi-selections if they exist
+        if (multiSelectionsRef.current.length > 0) {
+          const allSelections = multiSelectionsRef.current.map((item) => item.selection);
+          const currentSelections = currentEditor.getSelections();
+          
+          // Check if current selections differ from what we want
+          if (currentSelections && !areSelectionsEqual(currentSelections, allSelections)) {
+            currentEditor.setSelections(allSelections);
+          }
+        } else if (lockedSelectionRef.current) {
+          // Restore single locked selection
+          const currentSel = currentEditor.getSelection();
+          if (currentSel && !currentSel.equalsSelection(lockedSelectionRef.current)) {
+            currentEditor.setSelection(lockedSelectionRef.current);
+          }
+        }
+      }
+    });
+
+    // Helper to compare selection arrays
+    const areSelectionsEqual = (sel1: monaco.Selection[], sel2: monaco.Selection[]): boolean => {
+      if (sel1.length !== sel2.length) return false;
+      return sel1.every((s1, i) => {
+        const s2 = sel2[i];
+        return s1.startLineNumber === s2.startLineNumber &&
+               s1.endLineNumber === s2.endLineNumber &&
+               s1.startColumn === s2.startColumn &&
+               s1.endColumn === s2.endColumn;
+      });
+    };
 
     /**
      * Get the indentation level of a line
@@ -128,6 +166,11 @@ export const useQuickCopy = (
 
     // Mouse move listener for hover selection
     hoverDisposableRef.current = currentEditor.onMouseMove((e) => {
+      // Don't update selection if we just clicked
+      if (preventHoverRef.current) {
+        return;
+      }
+      
       const position = e.target.position;
       
       if (!position) {
@@ -137,6 +180,11 @@ export const useQuickCopy = (
         }
         messageTimeoutRef.current = setTimeout(() => {
           if (!isHoveringRef.current) {
+            // When not hovering, restore only the multi-selections if any exist
+            if (multiSelectionsRef.current.length > 0) {
+              const allSelections = multiSelectionsRef.current.map((item) => item.selection);
+              currentEditor.setSelections(allSelections);
+            }
             useAppStore.setState({ statusMessage: 'Quick Copy is active' });
           }
         }, 200);
@@ -164,6 +212,7 @@ export const useQuickCopy = (
         
         if (multiSelectionsRef.current.length > 0) {
           useAppStore.setState({ statusMessage: `Click to add ${blockName} (${lineCount} line${lineCount !== 1 ? 's' : ''})` });
+          // Always show all previous selections plus the current hover
           const allSelections = [
             ...multiSelectionsRef.current.map((item) => item.selection),
             newSelection
@@ -171,6 +220,8 @@ export const useQuickCopy = (
           currentEditor.setSelections(allSelections);
         } else {
           useAppStore.setState({ statusMessage: `Click to copy ${blockName} (${lineCount} line${lineCount !== 1 ? 's' : ''})` });
+          // For single selection mode, just set the current selection
+          currentEditor.setSelection(newSelection);
         }
       }
     });
@@ -182,12 +233,28 @@ export const useQuickCopy = (
         return;
       }
 
-      // Use the stored selection from hover (more reliable than getting current selection)
+      // Store the selection before click
       const selection = currentSelectionRef.current;
-      
       if (!selection) {
         return;
       }
+
+      // Prevent Monaco from handling this click (prevents selection flash)
+      e.event.preventDefault();
+      e.event.stopPropagation();
+
+      // Lock the selection
+      lockSelectionRef.current = true;
+      lockedSelectionRef.current = selection;
+
+      // Prevent hover from updating selection for a longer time after click
+      preventHoverRef.current = true;
+      setTimeout(() => {
+        preventHoverRef.current = false;
+        lockSelectionRef.current = false;
+        lockedSelectionRef.current = null;
+      }, 1000);
+
 
       // Get the selected text from the stored selection
       const selectedText = model.getValueInRange(selection);
@@ -212,9 +279,18 @@ export const useQuickCopy = (
           multiSelectionsRef.current.push({ selection, text: selectedText });
         }
 
-        // Visual feedback: set multiple selections in editor
+        // Visual feedback: set multiple selections in editor and keep them visible
         const allSelections = multiSelectionsRef.current.map((item) => item.selection);
-        currentEditor.setSelections(allSelections);
+        if (allSelections.length > 0) {
+          currentEditor.setSelections(allSelections);
+          // Lock these selections temporarily
+          lockSelectionRef.current = true;
+          lockedSelectionRef.current = allSelections[0]; // Store primary selection
+          setTimeout(() => {
+            lockSelectionRef.current = false;
+            lockedSelectionRef.current = null;
+          }, 500);
+        }
         
         // Immediately copy all selections
         if (multiSelectionsRef.current.length > 0) {
@@ -290,6 +366,9 @@ export const useQuickCopy = (
                 const blockName = getBlockName(selection.startLineNumber);
                 const lineCount = normalizedLines.length;
                 useAppStore.getState().setStatusMessage(`Copied ${blockName} (${lineCount} line${lineCount !== 1 ? 's' : ''})`);
+                
+                // Restore selection after copy
+                currentEditor.setSelection(selection);
               })
               .catch((err) => {
                 console.error('Failed to copy to clipboard:', err);
@@ -297,6 +376,9 @@ export const useQuickCopy = (
           }
         }
       }
+      
+      // Restore selection after all processing
+      currentEditor.setSelection(selection);
     });
 
     // Cleanup function
@@ -309,6 +391,10 @@ export const useQuickCopy = (
         clickDisposableRef.current.dispose();
         clickDisposableRef.current = null;
       }
+      if (selectionChangeDisposableRef.current) {
+        selectionChangeDisposableRef.current.dispose();
+        selectionChangeDisposableRef.current = null;
+      }
       if (messageTimeoutRef.current) {
         clearTimeout(messageTimeoutRef.current);
         messageTimeoutRef.current = null;
@@ -317,6 +403,8 @@ export const useQuickCopy = (
       lastHoverLineRef.current = -1;
       multiSelectionsRef.current = [];
       isHoveringRef.current = false;
+      lockSelectionRef.current = false;
+      lockedSelectionRef.current = null;
     };
   }, [editor, enableQuickCopy]);
 };

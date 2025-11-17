@@ -113,7 +113,16 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       const currentValue = editorRef.current.getValue();
       const newValue = safeValue;
       if (currentValue !== newValue) {
-        editorRef.current.setValue(newValue);
+        const model = editorRef.current.getModel();
+        if (model) {
+          // Use pushEditOperations to preserve undo/redo history
+          const fullRange = model.getFullModelRange();
+          model.pushEditOperations(
+            [],
+            [{ range: fullRange, text: newValue }],
+            () => null
+          );
+        }
       }
     }
     previousValueRef.current = safeValue;
@@ -268,6 +277,7 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
       autoFindInSelection: 'never',
       seedSearchStringFromSelection: 'always',
     },
+    // Ensure undo/redo is enabled
     ...options,
   };
 

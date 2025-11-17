@@ -1,6 +1,6 @@
 # HTML to PUG Converter (Beta)
 
-A real-time online converter that transforms HTML code into PUG (formerly Jade) template syntax. Built with React and TypeScript, featuring Monaco Editor with live bidirectional conversion, multi-file support, and advanced SVG optimization. Version 0.2.0 introduces a refreshed UI with improved accessibility and modern design.
+A real-time online converter that transforms HTML code into PUG (formerly Jade) template syntax. Built with React and TypeScript, featuring Monaco Editor with live bidirectional conversion, multi-file support, and advanced SVG optimization. Version 0.3.0 introduces Common Classes extraction, enhanced Quick Copy multi-selection, and auto-copy on selection.
 
 ## 🌟 Features
 
@@ -9,7 +9,9 @@ A real-time online converter that transforms HTML code into PUG (formerly Jade) 
 - **Multi-File Support**: Open and work with multiple files simultaneously using tabs
 - **Monaco Editor**: Professional code editing experience with VS Code-like features and keyboard shortcuts
 - **Status Bar**: Real-time display of active editor, cursor position, line/character selection, indentation settings, and file compression statistics
-- **Quick Copy Feature**: Multi-select specific elements or lines with Shift+Click for precise copying
+- **Quick Copy Feature**: Multi-select specific elements or lines with Shift+Click for precise copying with enhanced selection persistence
+- **Auto-Copy on Selection**: When Quick Copy is disabled, automatically copies selected text to clipboard on mouse release
+- **Tab Context Menu**: Right-click on tabs for New Tab, Duplicate, Close, Close Others, and Close All operations
 - **Drag & Drop**: Reorder tabs by dragging them to different positions
 - **File Upload**: Upload multiple HTML/SVG files at once using the Upload button
 - **Paste Files**: Copy SVG/HTML files from Finder and paste with <kbd>⌘</kbd><kbd>V</kbd> to create new tabs or replace blank tab content
@@ -35,6 +37,7 @@ A real-time online converter that transforms HTML code into PUG (formerly Jade) 
   - Multipass optimization for maximum compression
   - Descriptive hover hints explaining each plugin's function
 - **SVG Id to Class Conversion**: Convert SVG `id` attributes to `class` attributes
+- **Common Classes Extraction**: Automatically extract common class prefixes (e.g., `.popup1`, `.popup2` → `.popup.popup1`, `.popup.popup2`)
 - **PUG Size Variables**: Automatically convert width/height to variables when matching viewBox
 - **Smart SVG Processing**:
   - Color attributes (fill, stroke) always appear first in output
@@ -88,16 +91,19 @@ This will create an optimized build in the `docs/` folder (configured for GitHub
    - When no tabs are open: Creates new tabs for each pasted file
    - When pasting into a blank tab: Replaces the tab content and renames it
 5. **Quick Copy**: Use <kbd>⌘</kbd><kbd>⇧</kbd><kbd>C</kbd> to toggle Quick Copy mode, then Shift+Click to select multiple lines or elements
-6. **Create New Tab**: Click the "+" button in the tab bar
-7. **Switch Tabs**: Click on any tab to switch between open files
-8. **Reorder Tabs**: Drag and drop tabs to rearrange them
-9. **Close Tabs**: Click the "×" button on a tab
+6. **Tab Context Menu**: Right-click on any tab for quick actions (New Tab, Duplicate, Close, Close Others, Close All)
+7. **Create New Tab**: Click the "+" button in the tab bar
+8. **Switch Tabs**: Click on any tab to switch between open files
+9. **Reorder Tabs**: Drag and drop tabs to rearrange them
+10. **Close Tabs**: Click the "×" button on a tab or use the context menu
 
 ### Settings
 Use the floating controls to customize your experience:
+- **Quick Copy**: Toggle auto-copy mode for multi-selecting elements
 - **Spaces/Tabs**: Toggle between spaces and tabs for indentation
 - **Tab Size**: Choose indentation size (1-6 spaces)
 - **Id to Class**: Convert SVG `id` attributes to `class` attributes
+- **Common Classes**: Extract common class prefixes from similar class names
 - **SVGO**: Enable/disable SVG optimization with detailed plugin configuration
 - **Resize Panes**: Drag the divider between editors to adjust the view
 - **Move Controls**: Drag the floating controls panel to your preferred position

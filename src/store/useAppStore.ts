@@ -22,6 +22,7 @@ interface AppStore extends AppState {
   
   // Actions for feature toggles
   setEnableSvgIdToClass: (enabled: boolean) => void;
+  setEnableCommonClasses: (enabled: boolean) => void;
   setEnablePugSizeVars: (enabled: boolean) => void;
   setEnableQuickCopy: (enabled: boolean) => void;
   
@@ -52,6 +53,10 @@ interface AppStore extends AppState {
   reorderFiles: (fileIds: string[]) => void;
   setDraggedTabId: (tabId: string | null) => void;
   setDragOverTabId: (tabId: string | null) => void;
+  setTabBarScrollPosition: (position: number) => void;
+  duplicateFile: (fileId: string) => void;
+  closeOtherFiles: (fileId: string) => void;
+  closeAllFiles: () => void;
   
   // Status bar actions
   setActiveEditor: (editor: 'html' | 'pug' | null) => void;
@@ -78,6 +83,7 @@ export const useAppStore = create<AppStore>()(
       tabSize: 4,
       useSoftTabs: true,
       enableSvgIdToClass: migratedData.enableSvgIdToClass || false,
+      enableCommonClasses: migratedData.enableCommonClasses || false,
       enablePugSizeVars: migratedData.enablePugSizeVars || false,
       enableQuickCopy: migratedData.enableQuickCopy || false,
       controlsPosition: migratedData.controlsPosition || null,
@@ -92,6 +98,7 @@ export const useAppStore = create<AppStore>()(
       activeFileId: migratedData.activeFileId || null,
       draggedTabId: null,
       dragOverTabId: null,
+      tabBarScrollPosition: migratedData.tabBarScrollPosition || 0,
       _hasHydrated: false,
       
       // Status bar state (transient - not persisted)
@@ -116,6 +123,7 @@ export const useAppStore = create<AppStore>()(
 
       // Feature toggles actions
       setEnableSvgIdToClass: (enabled: boolean) => set({ enableSvgIdToClass: enabled }),
+      setEnableCommonClasses: (enabled: boolean) => set({ enableCommonClasses: enabled }),
       setEnablePugSizeVars: (enabled: boolean) => set({ enablePugSizeVars: enabled }),
       setEnableQuickCopy: (enabled: boolean) => set({ enableQuickCopy: enabled }),
 
@@ -262,6 +270,52 @@ export const useAppStore = create<AppStore>()(
       
       setDraggedTabId: (tabId: string | null) => set({ draggedTabId: tabId }),
       setDragOverTabId: (tabId: string | null) => set({ dragOverTabId: tabId }),
+      setTabBarScrollPosition: (position: number) => set({ tabBarScrollPosition: position }),
+      
+      duplicateFile: (fileId: string) =>
+        set((state) => {
+          const fileToDuplicate = state.openFiles.find((f) => f.id === fileId);
+          if (!fileToDuplicate) return state;
+          
+          const newFile: FileTab = {
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name: `${fileToDuplicate.name} (copy)`,
+            htmlContent: fileToDuplicate.htmlContent,
+            pugContent: fileToDuplicate.pugContent,
+          };
+          
+          const fileIndex = state.openFiles.findIndex((f) => f.id === fileId);
+          const newFiles = [...state.openFiles];
+          newFiles.splice(fileIndex + 1, 0, newFile);
+          
+          return {
+            openFiles: newFiles,
+            activeFileId: newFile.id,
+            HTMLCode: newFile.htmlContent,
+            JADECode: newFile.pugContent,
+          };
+        }),
+      
+      closeOtherFiles: (fileId: string) =>
+        set((state) => {
+          const fileToKeep = state.openFiles.find((f) => f.id === fileId);
+          if (!fileToKeep) return state;
+          
+          return {
+            openFiles: [fileToKeep],
+            activeFileId: fileId,
+            HTMLCode: fileToKeep.htmlContent,
+            JADECode: fileToKeep.pugContent,
+          };
+        }),
+      
+      closeAllFiles: () =>
+        set({
+          openFiles: [],
+          activeFileId: null,
+          HTMLCode: defaultHTMLCode || '',
+          JADECode: defaultJADECode || '',
+        }),
       
       // Status bar actions
       setActiveEditor: (editor: 'html' | 'pug' | null) => set({ activeEditor: editor }),
@@ -298,6 +352,7 @@ export const useAppStore = create<AppStore>()(
         tabSize: state.tabSize,
         useSoftTabs: state.useSoftTabs,
         enableSvgIdToClass: state.enableSvgIdToClass,
+        enableCommonClasses: state.enableCommonClasses,
         enablePugSizeVars: state.enablePugSizeVars,
         enableQuickCopy: state.enableQuickCopy,
         controlsPosition: state.controlsPosition,
@@ -306,6 +361,7 @@ export const useAppStore = create<AppStore>()(
         isSvgoEnabled: state.isSvgoEnabled,
         openFiles: state.openFiles,
         activeFileId: state.activeFileId,
+        tabBarScrollPosition: state.tabBarScrollPosition,
       }),
     }
   )

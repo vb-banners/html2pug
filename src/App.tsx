@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const isSvgoEnabled = useAppStore(state => state.isSvgoEnabled);
   const svgoSettings = useAppStore(state => state.svgoSettings);
   const enableSvgIdToClass = useAppStore(state => state.enableSvgIdToClass);
+  const enableCommonClasses = useAppStore(state => state.enableCommonClasses);
   const enablePugSizeVars = useAppStore(state => state.enablePugSizeVars);
   const enableQuickCopy = useAppStore(state => state.enableQuickCopy);
   const useSoftTabs = useAppStore(state => state.useSoftTabs);
@@ -36,13 +37,14 @@ const App: React.FC = () => {
     return null; // or a loading spinner
   }
   
-  // Handle conversion for global HTML code (when no tabs are open)
+    // Handle conversion for global HTML code (when no tabs are open)
   useEffect(() => {
     if (openFiles.length === 0) {
       const result = convertHtmlToPug(HTMLCode, {
         isSvgoEnabled,
         svgoSettings,
         enableSvgIdToClass,
+        enableCommonClasses,
         enablePugSizeVars,
         useSoftTabs,
         tabSize,
@@ -50,7 +52,7 @@ const App: React.FC = () => {
       });
       setJADECode(result);
     }
-  }, [HTMLCode, openFiles.length, isSvgoEnabled, svgoSettings, enableSvgIdToClass, enablePugSizeVars, useSoftTabs, tabSize, convertHtmlToPug, setJADECode]);
+  }, [HTMLCode, openFiles.length, isSvgoEnabled, svgoSettings, enableSvgIdToClass, enableCommonClasses, enablePugSizeVars, useSoftTabs, tabSize, convertHtmlToPug, setJADECode]);
   
   // Set up paste handler for SVG/HTML files
   usePasteHandler({ enabled: true });
@@ -94,6 +96,7 @@ const App: React.FC = () => {
                 isSvgoEnabled: store.isSvgoEnabled,
                 svgoSettings: store.svgoSettings,
                 enableSvgIdToClass: store.enableSvgIdToClass,
+                enableCommonClasses: store.enableCommonClasses,
                 enablePugSizeVars: store.enablePugSizeVars,
                 useSoftTabs: store.useSoftTabs,
                 tabSize: store.tabSize,

@@ -27,6 +27,7 @@ export interface AppState {
   
   // Feature toggles
   enableSvgIdToClass: boolean;
+  enableCommonClasses: boolean;
   enablePugSizeVars: boolean;
   enableQuickCopy: boolean;
   
@@ -49,6 +50,7 @@ export interface AppState {
   activeFileId: string | null;
   draggedTabId: string | null;
   dragOverTabId: string | null;
+  tabBarScrollPosition: number;
   
   // Status bar (transient - not persisted)
   activeEditor?: 'html' | 'pug' | null;

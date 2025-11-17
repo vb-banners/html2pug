@@ -6,6 +6,70 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.3.0-beta] - 2025-11-17
+
+### Added
+- **Common Classes Feature**: New toggle to extract common class prefixes and add them as parent classes
+  - Detects patterns like `.rating-popup1`, `.rating-popup2` → `.rating-popup.rating-popup1`, `.rating-popup.rating-popup2`
+  - Supports both dash-number (`.class-1`) and direct-number (`.class1`) patterns
+  - Position: After "Id to Class" toggle in settings
+  - Automatically applies to classes with 2+ instances sharing the same base prefix
+- **Auto-Copy on Selection**: When Quick Copy is disabled, selecting text and releasing the mouse automatically copies to clipboard
+  - Shows status message with line and character count
+  - Provides convenient copy without manual Cmd+C
+  - Only active when Quick Copy toggle is off
+- **Tab Context Menu**: Right-click context menu for tab operations
+  - New Tab: Create a new blank tab
+  - Duplicate: Clone the current tab
+  - Close: Close the current tab
+  - Close Others: Close all tabs except current
+  - Close All: Close all open tabs
+  - Styled to match dropdown/select components with icons
+  - Uses Radix UI Context Menu (@radix-ui/react-context-menu v2.2.16)
+- **Enhanced Multi-Selection in Quick Copy**: Improved selection persistence during multi-select
+  - Previous selections remain visible while hovering over new blocks
+  - Selections no longer disappear when moving between blocks with Shift held
+  - Visual feedback maintains all selections until clicking without Shift
+
+### Changed
+- **Quick Copy Position**: Moved to leftmost position in feature toggles (before Id to Class and Common Classes)
+- **Editor Theme Colors**:
+  - Yellow accent changed from `#FFC94F` to `#FFCF61` for better contrast
+  - Blue syntax highlighting changed from `#5CCFE6` and `#73D0FF` to `#00D3E9` for consistency
+  - Code line highlight changed from `#232834` to `#191F2A` for subtler appearance
+- **Tab Bar Enhancements**:
+  - Upload button fixed outside scrollable area with full-height separator
+  - Plus button repositioned to follow last tab inside scrollable area
+  - Tab separators updated to match Upload button separator style
+  - Scroll position persisted in localStorage with active tab always visible on refresh
+  - Hidden scrollbar for cleaner appearance
+- **Plus Button Behavior**: Now sticky to the right side of the last tab for intuitive tab creation
+
+### Fixed
+- **Quick Copy Selection Lock**: Selection now persists after clicking during Quick Copy mode
+  - Added selection locking mechanism with 1-second duration
+  - Prevents hover handler from clearing selection immediately after click
+  - Uses `onDidChangeCursorSelection` listener to actively maintain locked selection
+- **Multi-Selection Visual Persistence**: Fixed disappearing selections during multi-select
+  - Selections remain visible throughout the selection process
+  - Only cleared when clicking without Shift key held
+  - Improved `areSelectionsEqual` helper for accurate selection comparison
+
+### Technical Improvements
+- **State Management**: Added `enableCommonClasses` and `tabBarScrollPosition` to Zustand store with localStorage persistence
+- **Conversion Logic**: Implemented `applyCommonClassesTransform` function in `useConversion.ts`
+  - Uses Map-based collection of class patterns
+  - Applies transformation only when 2+ classes share base prefix
+  - Preserves existing class structure with regex-based replacement
+- **Custom Hooks**: 
+  - Created `useAutoCopyOnSelect.ts` for auto-copy functionality
+  - Enhanced `useQuickCopy.ts` with multi-selection locking and persistence logic
+- **Context Menu Integration**: 
+  - Created `src/Components/ui/context-menu.tsx` with full Radix UI component set
+  - Added `duplicateFile`, `closeOtherFiles`, `closeAllFiles` actions to store
+  - Integrated context menu in TabBar with proper event handling
+- **Editor Updates**: Modified `MonacoEditor.tsx` to use `pushEditOperations` instead of `setValue` (preserves undo/redo history)
+
 ## [0.2.0-beta] - 2025-11-17
 
 ### UI/UX Redesign - Complete Color Scheme Overhaul

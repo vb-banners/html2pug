@@ -17,11 +17,18 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from './ui/button';
-import { X, Plus, Upload } from 'lucide-react';
+import { X, Plus, Upload, Copy, XCircle, Layers } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 import { useFileTabs } from '../hooks/useFileTabs';
 import { useConversion } from '../hooks/useConversion';
 import { cn } from '../lib/utils';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from './ui/context-menu';
 
 interface SortableTabProps {
   id: string;
@@ -29,9 +36,23 @@ interface SortableTabProps {
   isActive: boolean;
   onSelect: () => void;
   onClose: () => void;
+  onDuplicate: () => void;
+  onCloseOthers: () => void;
+  onCloseAll: () => void;
+  onNewTab: () => void;
 }
 
-const SortableTab: React.FC<SortableTabProps> = ({ id, title, isActive, onSelect, onClose }) => {
+const SortableTab: React.FC<SortableTabProps> = ({ 
+  id, 
+  title, 
+  isActive, 
+  onSelect, 
+  onClose, 
+  onDuplicate, 
+  onCloseOthers, 
+  onCloseAll,
+  onNewTab 
+}) => {
   const {
     attributes,
     listeners,
@@ -47,61 +68,120 @@ const SortableTab: React.FC<SortableTabProps> = ({ id, title, isActive, onSelect
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={{
-        ...style,
-        backgroundColor: isActive ? '#232937' : 'transparent'
-      }}
-      className={cn(
-        'flex items-center gap-2 pl-6 pr-3 py-2 border-r border-border border-t border-t-transparent select-none',
-        'hover:bg-muted transition-colors relative',
-        isActive && 'text-accent-foreground border-t-[#FFC94F]',
-        isDragging && 'opacity-50'
-      )}
-      role="tab"
-      aria-selected={isActive}
-    >
-      <span 
-        className="text-sm truncate max-w-[200px] cursor-pointer" 
-        style={{ color: isActive ? '#C5C5C5' : '#6E7A8F' }}
-        title={title}
-        onClick={onSelect}
-        {...attributes}
-        {...listeners}
-      >
-        {title}
-      </span>
-      <button
-        className={cn(
-          'p-0.5 rounded hover:bg-destructive/20 hover:text-destructive transition-colors',
-          'focus:outline-none focus:ring-2 focus:ring-ring',
-          isActive ? 'text-foreground/70' : 'text-muted-foreground'
-        )}
-        onClick={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
-        aria-label={`Close ${title}`}
-        tabIndex={0}
-        type="button"
-      >
-        <X className="w-3 h-3" />
-      </button>
+    <div className="flex items-center">
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            ref={setNodeRef}
+            data-tab-id={id}
+            style={{
+              ...style,
+              backgroundColor: isActive ? '#232937' : 'transparent'
+            }}
+            className={cn(
+              'flex items-center gap-2 pl-6 pr-3 py-2 border-t border-t-transparent select-none h-10',
+              'hover:bg-muted transition-colors relative',
+              isActive && 'text-accent-foreground border-t-[#FFC94F]',
+              isDragging && 'opacity-50'
+            )}
+            role="tab"
+            aria-selected={isActive}
+          >
+            <span 
+              className="text-sm truncate max-w-[200px] cursor-pointer" 
+              style={{ color: isActive ? '#C5C5C5' : '#6E7A8F' }}
+              title={title}
+              onClick={onSelect}
+              {...attributes}
+              {...listeners}
+            >
+              {title}
+            </span>
+            <button
+              className={cn(
+                'p-0.5 rounded hover:bg-destructive/20 hover:text-destructive transition-colors',
+                'focus:outline-none focus:ring-2 focus:ring-ring',
+                isActive ? 'text-foreground/70' : 'text-muted-foreground'
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
+              aria-label={`Close ${title}`}
+              tabIndex={0}
+              type="button"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          <ContextMenuItem onClick={onNewTab}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Tab
+          </ContextMenuItem>
+          <ContextMenuItem onClick={onDuplicate}>
+            <Copy className="w-4 h-4 mr-2" />
+            Duplicate Tab
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={onClose}>
+            <X className="w-4 h-4 mr-2" />
+            Close Tab
+          </ContextMenuItem>
+          <ContextMenuItem onClick={onCloseOthers}>
+            <XCircle className="w-4 h-4 mr-2" />
+            Close Other Tabs
+          </ContextMenuItem>
+          <ContextMenuItem onClick={onCloseAll}>
+            <Layers className="w-4 h-4 mr-2" />
+            Close All Tabs
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+      <div className="h-10 w-px bg-border shrink-0" />
     </div>
   );
 };
 
 export const TabBar: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const tabBarRef = useRef<HTMLDivElement>(null);
   const openFiles = useAppStore(state => state.openFiles);
   const activeFileId = useAppStore(state => state.activeFileId);
   const reorderFiles = useAppStore(state => state.reorderFiles);
   const addFile = useAppStore(state => state.addFile);
   const addFiles = useAppStore(state => state.addFiles);
+  const setTabBarScrollPosition = useAppStore(state => state.setTabBarScrollPosition);
+  const duplicateFile = useAppStore(state => state.duplicateFile);
+  const closeOtherFiles = useAppStore(state => state.closeOtherFiles);
+  const closeAllFiles = useAppStore(state => state.closeAllFiles);
   
   const { handleTabSwitch, handleTabClose } = useFileTabs();
   const { convertHtmlToPug } = useConversion();
+  
+  // Scroll active tab into view on mount and when it changes
+  React.useEffect(() => {
+    if (tabBarRef.current && activeFileId) {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        const activeTab = tabBarRef.current?.querySelector(`[data-tab-id="${activeFileId}"]`);
+        if (activeTab) {
+          activeTab.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
+        }
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [activeFileId]);
+  
+  // Save scroll position when user scrolls
+  const handleScroll = React.useCallback(() => {
+    if (tabBarRef.current) {
+      setTabBarScrollPosition(tabBarRef.current.scrollLeft);
+    }
+  }, [setTabBarScrollPosition]);
   
   const handleNewTab = () => {
     const newFile = {
@@ -140,6 +220,7 @@ export const TabBar: React.FC = () => {
             isSvgoEnabled: state.isSvgoEnabled,
             svgoSettings: state.svgoSettings,
             enableSvgIdToClass: state.enableSvgIdToClass,
+            enableCommonClasses: state.enableCommonClasses,
             enablePugSizeVars: state.enablePugSizeVars,
             useSoftTabs: state.useSoftTabs,
             tabSize: state.tabSize,
@@ -208,7 +289,7 @@ export const TabBar: React.FC = () => {
         aria-label="Upload HTML files"
       />
       
-      <div className="flex items-center h-10 overflow-x-auto" role="tablist" style={{ backgroundColor: '#1E2431', borderBottom: '1px solid #2F3A4B' }}>
+      <div className="flex items-center h-10 relative" style={{ backgroundColor: '#1E2431', borderBottom: '1px solid #2F3A4B' }}>
         <Button
           variant="ghost"
           size="sm"
@@ -221,6 +302,14 @@ export const TabBar: React.FC = () => {
           Upload
         </Button>
         
+        <div className="h-full w-px bg-border shrink-0" />
+        
+        <div 
+          ref={tabBarRef}
+          className="flex items-center overflow-x-auto scrollbar-hide flex-1" 
+          role="tablist"
+          onScroll={handleScroll}
+        >
         {openFiles.length === 0 ? (
           <Button
             variant="ghost"
@@ -251,11 +340,14 @@ export const TabBar: React.FC = () => {
                     isActive={file.id === activeFileId}
                     onSelect={() => handleTabSwitch(file.id)}
                     onClose={() => handleTabClose(file.id)}
+                    onDuplicate={() => duplicateFile(file.id)}
+                    onCloseOthers={() => closeOtherFiles(file.id)}
+                    onCloseAll={closeAllFiles}
+                    onNewTab={handleNewTab}
                   />
                 ))}
               </SortableContext>
             </DndContext>
-            
             <Button
               variant="ghost"
               size="sm"
@@ -267,6 +359,7 @@ export const TabBar: React.FC = () => {
             </Button>
           </>
         )}
+        </div>
       </div>
     </>
   );

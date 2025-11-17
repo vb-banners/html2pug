@@ -4,6 +4,7 @@ import { useSplitPane } from '../hooks/useSplitPane';
 import { useAppStore } from '../store/useAppStore';
 import { useConversion } from '../hooks/useConversion';
 import { useQuickCopy } from '../hooks/useQuickCopy';
+import { useAutoCopyOnSelect } from '../hooks/useAutoCopyOnSelect';
 import { useEditorCursor } from '../hooks/useEditorCursor';
 import { useCompressionStats } from '../hooks/useCompressionStats';
 import type * as monaco from 'monaco-editor';
@@ -21,6 +22,7 @@ export const EditorPane: React.FC = () => {
   const isSvgoEnabled = useAppStore(state => state.isSvgoEnabled);
   const svgoSettings = useAppStore(state => state.svgoSettings);
   const enableSvgIdToClass = useAppStore(state => state.enableSvgIdToClass);
+  const enableCommonClasses = useAppStore(state => state.enableCommonClasses);
   const enablePugSizeVars = useAppStore(state => state.enablePugSizeVars);
   const enableQuickCopy = useAppStore(state => state.enableQuickCopy);
   
@@ -135,6 +137,9 @@ export const EditorPane: React.FC = () => {
   // Enable Quick Copy feature for Pug editor (using state to ensure it updates when editor mounts)
   useQuickCopy(pugEditorInstance, enableQuickCopy);
 
+  // Enable auto-copy on selection for Pug editor when Quick Copy is disabled
+  useAutoCopyOnSelect(pugEditorInstance, enableQuickCopy);
+
   // Enable cursor tracking for both editors
   useEditorCursor(htmlEditorRef.current, pugEditorRef.current);
 
@@ -209,6 +214,7 @@ export const EditorPane: React.FC = () => {
         isSvgoEnabled,
         svgoSettings,
         enableSvgIdToClass,
+        enableCommonClasses,
         enablePugSizeVars,
         useSoftTabs,
         tabSize,
@@ -221,7 +227,7 @@ export const EditorPane: React.FC = () => {
         useAppStore.getState().setJADECode(pugContent);
       }
     }
-  }, [isSvgoEnabled, svgoSettings, enableSvgIdToClass, enablePugSizeVars, useSoftTabs, tabSize]);
+  }, [isSvgoEnabled, svgoSettings, enableSvgIdToClass, enableCommonClasses, enablePugSizeVars, useSoftTabs, tabSize]);
 
   return (
     <div ref={sectionRef as any} className="flex flex-1 relative overflow-hidden">
@@ -242,6 +248,7 @@ export const EditorPane: React.FC = () => {
                 isSvgoEnabled,
                 svgoSettings,
                 enableSvgIdToClass,
+                enableCommonClasses,
                 enablePugSizeVars,
                 useSoftTabs,
                 tabSize,

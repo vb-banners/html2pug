@@ -15,12 +15,14 @@ export const FloatingControls: React.FC = () => {
   const tabSize = useAppStore(state => state.tabSize);
   const useSoftTabs = useAppStore(state => state.useSoftTabs);
   const enableSvgIdToClass = useAppStore(state => state.enableSvgIdToClass);
+  const enableCommonClasses = useAppStore(state => state.enableCommonClasses);
   const enableQuickCopy = useAppStore(state => state.enableQuickCopy);
   const isSvgoEnabled = useAppStore(state => state.isSvgoEnabled);
   
   const setTabSize = useAppStore(state => state.setTabSize);
   const setUseSoftTabs = useAppStore(state => state.setUseSoftTabs);
   const setEnableSvgIdToClass = useAppStore(state => state.setEnableSvgIdToClass);
+  const setEnableCommonClasses = useAppStore(state => state.setEnableCommonClasses);
   const setEnableQuickCopy = useAppStore(state => state.setEnableQuickCopy);
   const setIsSvgoEnabled = useAppStore(state => state.setIsSvgoEnabled);
   const setIsSvgoMenuOpen = useAppStore(state => state.setIsSvgoMenuOpen);
@@ -83,6 +85,22 @@ export const FloatingControls: React.FC = () => {
           <div className="w-24" />
 
           <div className="flex items-center gap-4">
+            <div className="flex items-center space-x-2" title="Automatically copy converted Pug code to clipboard">
+              <Switch
+                id="quickCopy"
+                checked={enableQuickCopy}
+                onCheckedChange={setEnableQuickCopy}
+                aria-label="Toggle Quick Copy feature"
+              />
+              <Label 
+                htmlFor="quickCopy" 
+                className="text-sm cursor-pointer leading-one mt-[7px]"
+                style={{ color: '#C5C5C5' }}
+              >
+                Quick Copy
+              </Label>
+            </div>
+
             <div className="flex items-center space-x-2" title="Convert SVG id attributes to class attributes">
               <Switch
                 id="idToClass"
@@ -99,19 +117,19 @@ export const FloatingControls: React.FC = () => {
               </Label>
             </div>
 
-            <div className="flex items-center space-x-2" title="Automatically copy converted Pug code to clipboard">
+            <div className="flex items-center space-x-2" title="Extract common class prefixes (e.g., .popup.popup1 from .popup1)">
               <Switch
-                id="quickCopy"
-                checked={enableQuickCopy}
-                onCheckedChange={setEnableQuickCopy}
-                aria-label="Toggle Quick Copy feature"
+                id="commonClasses"
+                checked={enableCommonClasses}
+                onCheckedChange={setEnableCommonClasses}
+                aria-label="Toggle Common Classes extraction"
               />
               <Label 
-                htmlFor="quickCopy" 
+                htmlFor="commonClasses" 
                 className="text-sm cursor-pointer leading-one mt-[7px]"
                 style={{ color: '#C5C5C5' }}
               >
-                Quick Copy
+                Common Classes
               </Label>
             </div>
           </div>

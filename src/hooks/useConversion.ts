@@ -173,6 +173,45 @@ export const useConversion = () => {
     return transformed;
   }, []);
 
+  const applyCommonClassesTransform = useCallback((jade: string): string => {
+    if (typeof jade !== 'string') {
+      return jade;
+    }
+
+    // Match class names like .class1, .class2, .class-1, .class-2, etc.
+    const classPattern = /\.([a-zA-Z_][\w-]*?)(-?\d+)(?=\s|\.|\(|$)/g;
+    const classesMap = new Map<string, Set<string>>();
+    
+    // First pass: collect all class names and their bases
+    let match;
+    while ((match = classPattern.exec(jade)) !== null) {
+      const fullClass = match[0]; // e.g., '.rating-popup1'
+      const base = match[1]; // e.g., 'rating-popup'
+      
+      if (!classesMap.has(base)) {
+        classesMap.set(base, new Set());
+      }
+      classesMap.get(base)!.add(fullClass);
+    }
+    
+    // Second pass: replace classes that have common prefixes
+    let transformed = jade;
+    classesMap.forEach((classes, base) => {
+      // Only apply if there are at least 2 classes with the same base
+      if (classes.size >= 2) {
+        classes.forEach((fullClass) => {
+          // Replace .class1 with .class.class1
+          // Use word boundary to avoid partial matches
+          const escapedClass = fullClass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const pattern = new RegExp(`(${escapedClass})(?=\\s|\\.|\\(|$)`, 'g');
+          transformed = transformed.replace(pattern, `.${base}${fullClass}`);
+        });
+      }
+    });
+    
+    return transformed;
+  }, []);
+
   const applyPugSizeVarsTransform = useCallback((jade: string, html: string): string => {
     if (typeof jade !== 'string' || typeof html !== 'string') {
       return jade;
@@ -228,6 +267,7 @@ export const useConversion = () => {
       isSvgoEnabled: boolean;
       svgoSettings: SvgoSettings;
       enableSvgIdToClass: boolean;
+      enableCommonClasses: boolean;
       enablePugSizeVars: boolean;
       useSoftTabs: boolean;
       tabSize: number;
@@ -278,6 +318,9 @@ export const useConversion = () => {
         if (options.enableSvgIdToClass) {
           sanitizeJade = applySvgIdToClassTransform(sanitizeJade);
         }
+        if (options.enableCommonClasses) {
+          sanitizeJade = applyCommonClassesTransform(sanitizeJade);
+        }
         if (options.enablePugSizeVars) {
           sanitizeJade = applyPugSizeVarsTransform(sanitizeJade, optimizedHtml);
         }
@@ -286,7 +329,7 @@ export const useConversion = () => {
     }
     
     return result;
-  }, [applySvgoOptimizations, removeMatchingRects, applySvgIdToClassTransform, applyPugSizeVarsTransform, findHTMLOrBodyTag]);
+  }, [applySvgoOptimizations, removeMatchingRects, applySvgIdToClassTransform, applyCommonClassesTransform, applyPugSizeVarsTransform, findHTMLOrBodyTag]);
 
   const convertPugToHtml = useCallback((
     pugCode: string,
@@ -318,6 +361,7 @@ export const useConversion = () => {
     applySvgoOptimizations,
     removeMatchingRects,
     applySvgIdToClassTransform,
+    applyCommonClassesTransform,
     applyPugSizeVarsTransform,
     findHTMLOrBodyTag,
     convertHtmlToPug,
