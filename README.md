@@ -56,10 +56,10 @@ Visit the live demo at: [https://vb-banners.github.io/svg2pug/](https://vb-banne
 
 ```bash
 # Clone the repository
-git clone https://github.com/vb-banners/html2pug.git
+git clone https://github.com/vb-banners/svg2pug.git
 
 # Navigate to the project directory
-cd html2pug
+cd svg2pug
 
 # Install dependencies
 npm install
