@@ -9,7 +9,7 @@ export const useSplitPane = () => {
   const sectionRef = useRef<HTMLElement | null>(null);
   const isResizingRef = useRef(false);
 
-  const { pugWidthRatio, setPugWidthRatio, setIsResizingSplit, showPreview } = useAppStore();
+  const { pugWidthRatio, setPugWidthRatio, setIsResizingSplit } = useAppStore();
 
   const handleSplitMouseDown = useCallback((event: React.MouseEvent) => {
     event.preventDefault();
@@ -79,17 +79,11 @@ export const useSplitPane = () => {
   }, [pugWidthRatio]);
 
   const getHtmlEditorStyle = useCallback(() => {
-    // When preview is hidden, the left section should take full width
-    if (!showPreview) {
-      return {
-        width: '100%'
-      };
-    }
     const htmlWidthRatio = 1 - pugWidthRatio;
     return {
       width: `${htmlWidthRatio * 100}%`
     };
-  }, [pugWidthRatio, showPreview]);
+  }, [pugWidthRatio]);
 
   const getPugEditorStyle = useCallback(() => {
     return {

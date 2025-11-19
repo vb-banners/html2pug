@@ -72,6 +72,8 @@ export const getDefaultSvgoSettings = (): SvgoSettings => {
   for (const plugin of SVGO_PLUGIN_OPTIONS) {
     plugins[plugin.id] = Boolean(plugin.enabledByDefault);
   }
+  // Custom toggles that aren't part of SVGO's built-in plugin list
+  plugins.removeSvgElement = false;
   return { ...GLOBAL_DEFAULTS, plugins };
 };
 
@@ -119,10 +121,15 @@ export const mergeSvgoSettings = (raw: any): SvgoSettings => {
         merged.plugins[option.id] = Boolean(raw.plugins[option.id]);
       }
     }
+    if (Object.prototype.hasOwnProperty.call(raw.plugins, 'removeSvgElement')) {
+      merged.plugins.removeSvgElement = Boolean(raw.plugins.removeSvgElement);
+    }
     // Handle old cleanupIDs -> cleanupIds migration
     if (raw.plugins.cleanupIDs !== undefined && raw.plugins.cleanupIds === undefined) {
       merged.plugins.cleanupIds = Boolean(raw.plugins.cleanupIDs);
     }
+  } else {
+    merged.plugins.removeSvgElement = false;
   }
 
   return merged;

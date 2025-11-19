@@ -43,6 +43,9 @@ export const SvgoSettingsDialog: React.FC<SvgoSettingsDialogProps> = ({ isOpen, 
   };
 
   const isPluginEnabled = (pluginName: string): boolean => {
+    if (pluginName === 'removeSvgElement') {
+      return svgoSettings.plugins[pluginName] === true;
+    }
     return svgoSettings.plugins[pluginName] !== false;
   };
 

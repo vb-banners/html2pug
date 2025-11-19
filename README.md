@@ -1,6 +1,6 @@
 # SVG to PUG Converter (Beta)
 
-A real-time online converter that transforms SVG code into PUG (formerly Jade) template syntax. Built with React and TypeScript, featuring Monaco Editor with live bidirectional conversion, multi-file support, and advanced SVG optimization. Version 0.4.0 introduces a Live Preview pane, in-editor color highlighting, and completes the rebranding to "SVG to PUG".
+A real-time online converter that transforms SVG code into PUG (formerly Jade) template syntax. Built with React and TypeScript, featuring Monaco Editor with live bidirectional conversion, multi-file support, and advanced SVG optimization. Version 0.4.1 adds the **Remove SVG Parent** toggle alongside the Live Preview pane and in-editor color highlighting introduced in 0.4.0.
 
 ## 🌟 Features
 
@@ -44,6 +44,7 @@ A real-time online converter that transforms SVG code into PUG (formerly Jade) t
 - **Smart SVG Processing**:
   - Color attributes (fill, stroke) always appear first in output
   - Defs blocks automatically positioned at the beginning
+  - Optional removal of the root `<svg>` wrapper with children re-indented to match your tab/space settings
   - Auto-removal of rect elements matching filename
 - **Smart Formatting**: Automatic beautification of both HTML and PUG code
 - **Bodyless Mode**: Automatically detects and handles HTML snippets without `<html>` or `<body>` tags
@@ -116,6 +117,7 @@ Click the "SVGO Settings" button to access advanced SVG optimization options:
 - **Global Settings**: 
   - **Multipass**: Run optimization up to 10 times for maximum compression
   - **PUG Size Vars**: Convert width/height to variables when matching viewBox
+  - **Remove SVG Parent**: Drop the outer `<svg>` element and shift all children one indent left (honors tabs/spaces and tab size)
   - **Number Precision**: Control decimal precision (0-8)
   - **Transform Precision**: Control transform precision (0-8)
 - **Cleanup**: Remove doctype, comments, metadata, editor data, hidden elements, etc.

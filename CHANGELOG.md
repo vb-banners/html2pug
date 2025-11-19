@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-11-19
+
+### Added
+- **Remove SVG Parent toggle**: New SVGO global option to strip the outer `<svg>` node and shift all children left by one indent level, honoring tabs/spaces and tab size in the PUG output
+
 ## [0.4.0] - 2025-11-19
 
 ### Added

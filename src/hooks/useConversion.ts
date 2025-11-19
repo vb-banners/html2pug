@@ -257,6 +257,57 @@ export const useConversion = () => {
     return transformed;
   }, []);
 
+  const removeSvgParentFromPug = useCallback((jade: string, useSoftTabs: boolean, tabSize: number): string => {
+    if (typeof jade !== 'string') {
+      return jade;
+    }
+
+    const lines = jade.split('\n');
+    const svgLineIndex = lines.findIndex(line => line.trim() !== '');
+    if (svgLineIndex === -1) {
+      return jade;
+    }
+
+    const firstContent = lines[svgLineIndex];
+    const trimmedFirst = firstContent.trimStart();
+
+    if (!/^svg(\b|#|\.|\(|$)/.test(trimmedFirst)) {
+      return jade;
+    }
+
+    const indentSize = useSoftTabs ? Math.max(tabSize, 1) : 1;
+    const indentUnit = useSoftTabs ? ' '.repeat(indentSize) : '\t';
+    const indentPattern = new RegExp(`^${indentUnit}`);
+
+    const dedentLine = (line: string) => {
+      if (indentPattern.test(line)) {
+        return line.replace(indentPattern, '');
+      }
+      const leadingWhitespace = line.match(/^\s+/)?.[0] ?? '';
+      if (leadingWhitespace.length > 0) {
+        return line.slice(Math.min(leadingWhitespace.length, indentUnit.length));
+      }
+      return line;
+    };
+
+    const resultLines: string[] = [];
+
+    for (let i = 0; i < svgLineIndex; i++) {
+      resultLines.push(lines[i]);
+    }
+
+    for (let i = svgLineIndex + 1; i < lines.length; i++) {
+      const line = lines[i];
+      resultLines.push(line.trim() === '' ? '' : dedentLine(line));
+    }
+
+    while (resultLines.length > 0 && resultLines[0].trim() === '') {
+      resultLines.shift();
+    }
+
+    return resultLines.join('\n');
+  }, []);
+
   const reorderFillOpacity = useCallback((html: string): string => {
     if (!html || typeof html !== 'string') return html;
 
@@ -348,12 +399,15 @@ export const useConversion = () => {
         if (options.enablePugSizeVars) {
           sanitizeJade = applyPugSizeVarsTransform(sanitizeJade, optimizedHtml);
         }
+        if (options.svgoSettings?.plugins?.removeSvgElement) {
+          sanitizeJade = removeSvgParentFromPug(sanitizeJade, options.useSoftTabs, options.tabSize);
+        }
         result = sanitizeJade;
       });
     }
     
     return result;
-  }, [applySvgoOptimizations, removeMatchingRects, applySvgIdToClassTransform, applyCommonClassesTransform, applyPugSizeVarsTransform, findHTMLOrBodyTag]);
+  }, [applySvgoOptimizations, removeMatchingRects, applySvgIdToClassTransform, applyCommonClassesTransform, applyPugSizeVarsTransform, removeSvgParentFromPug, findHTMLOrBodyTag]);
 
   const convertPugToHtml = useCallback((
     pugCode: string,
@@ -413,6 +467,7 @@ export const useConversion = () => {
     applySvgIdToClassTransform,
     applyCommonClassesTransform,
     applyPugSizeVarsTransform,
+    removeSvgParentFromPug,
     findHTMLOrBodyTag,
     convertHtmlToPug,
     convertPugToHtml,
