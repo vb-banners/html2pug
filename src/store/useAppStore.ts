@@ -68,7 +68,7 @@ interface AppStore extends AppState {
   setHtmlSelectionInfo: (info: SelectionInfo | null) => void;
   setPugSelectionInfo: (info: SelectionInfo | null) => void;
   setCompressionStats: (stats: CompressionStats) => void;
-  setStatusMessage: (message: string | null) => void;
+  setStatusMessage: (message: string | null, durationMs?: number) => void;
   
   // Computed selectors
   getActiveFile: () => FileTab | null;
@@ -333,10 +333,10 @@ export const useAppStore = create<AppStore>()(
       setHtmlSelectionInfo: (info: SelectionInfo | null) => set({ htmlSelectionInfo: info }),
       setPugSelectionInfo: (info: SelectionInfo | null) => set({ pugSelectionInfo: info }),
       setCompressionStats: (stats: CompressionStats) => set({ compressionStats: stats }),
-      setStatusMessage: (message: string | null) => {
+      setStatusMessage: (message: string | null, durationMs = 5000) => {
         set({ statusMessage: message });
-        if (message) {
-          setTimeout(() => set({ statusMessage: null }), 5000);
+        if (message && durationMs > 0) {
+          setTimeout(() => set({ statusMessage: null }), durationMs);
         }
       },
 

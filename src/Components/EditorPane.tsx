@@ -20,8 +20,6 @@ export const EditorPane: React.FC = () => {
   const pugWidthRatio = useAppStore(state => state.pugWidthRatio);
   const tabSize = useAppStore(state => state.tabSize);
   const useSoftTabs = useAppStore(state => state.useSoftTabs);
-  const isSvgoEnabled = useAppStore(state => state.isSvgoEnabled);
-  const svgoSettings = useAppStore(state => state.svgoSettings);
   const enableSvgIdToClass = useAppStore(state => state.enableSvgIdToClass);
   const enableCommonClasses = useAppStore(state => state.enableCommonClasses);
   const enablePugSizeVars = useAppStore(state => state.enablePugSizeVars);
@@ -29,6 +27,10 @@ export const EditorPane: React.FC = () => {
   const showPreview = useAppStore(state => state.showPreview);
   const previewSplitRatio = useAppStore(state => state.previewSplitRatio);
   const setPreviewSplitRatio = useAppStore(state => state.setPreviewSplitRatio);
+  const svgoSettings = useAppStore(state => state.svgoSettings);
+  const isSvgoEnabled = useAppStore(state => state.isSvgoEnabled);
+  const removeSvgParentEnabled = svgoSettings?.plugins?.removeSvgElement === true;
+  const hasHydrated = useAppStore(state => state._hasHydrated);
 
   const { convertHtmlToPug, convertPugToHtml } = useConversion();
 
@@ -60,6 +62,7 @@ export const EditorPane: React.FC = () => {
   const [highlightLines, setHighlightLines] = React.useState<number[]>([]);
   const [isCopied, setIsCopied] = React.useState(false);
   const [previewContent, setPreviewContent] = React.useState<string>('');
+  const lastCopiedContextRef = useRef<string | null>(null);
   const skipNextScrollRef = useRef<{ html: boolean; pug: boolean }>({
     html: false,
     pug: false,
@@ -225,6 +228,31 @@ export const EditorPane: React.FC = () => {
     syncScrollPositions('html');
   }, [displayJADECode, syncScrollPositions]);
 
+  // Re-apply "Remove SVG Parent" across all tabs when toggled to keep outputs consistent
+  useEffect(() => {
+    const state = useAppStore.getState();
+    const files = state.openFiles;
+    if (!files || files.length === 0) return;
+
+    files.forEach(file => {
+      const htmlContent = file.htmlContent || '';
+      if (!htmlContent.trim()) return;
+
+      const pugContent = convertHtmlToPug(htmlContent, {
+        isSvgoEnabled,
+        svgoSettings,
+        enableSvgIdToClass,
+        enableCommonClasses,
+        enablePugSizeVars,
+        useSoftTabs,
+        tabSize,
+        fileName: file.name
+      });
+
+      state.updateFileContent(file.id, htmlContent, pugContent);
+    });
+  }, [removeSvgParentEnabled, isSvgoEnabled, svgoSettings, enableSvgIdToClass, enableCommonClasses, enablePugSizeVars, useSoftTabs, tabSize, convertHtmlToPug]);
+
   // Force layout when content changes (after hydration or file upload)
   useEffect(() => {
     const layoutEditors = () => {
@@ -368,21 +396,62 @@ export const EditorPane: React.FC = () => {
 
   // Sync preview content on file switch or initial load
   useEffect(() => {
+    const removeSvgParent = Boolean(svgoSettings?.plugins?.removeSvgElement);
+
+    const extractSvgAttributes = (html: string): string => {
+      const match = html.match(/<svg\s+([^>]*?)>/i);
+      return match && match[1] ? match[1].trim() : '';
+    };
+
     let content = displayHTMLCode || '';
     
     if (displayJADECode) {
-      const debugHtml = convertPugToHtml(displayJADECode, {
+      let debugHtml = convertPugToHtml(displayJADECode, {
         useSoftTabs,
         tabSize,
         injectDebugInfo: true
-      });
+      }) || '';
+
+      if (removeSvgParent && debugHtml && !/<svg[\s\S]*?>/i.test(debugHtml)) {
+        const svgAttrs = extractSvgAttributes(displayHTMLCode || '');
+        debugHtml = svgAttrs ? `<svg ${svgAttrs}>${debugHtml}</svg>` : `<svg>${debugHtml}</svg>`;
+      }
+
       if (debugHtml) {
         content = debugHtml;
       }
     }
     
     setPreviewContent(content);
-  }, [activeFileId, displayJADECode, displayHTMLCode, convertPugToHtml, useSoftTabs, tabSize]);
+  }, [activeFileId, displayJADECode, displayHTMLCode, convertPugToHtml, useSoftTabs, tabSize, svgoSettings]);
+
+  // Auto-copy current Pug when a tab becomes active (including initial load)
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
+
+    const pugToCopy = displayJADECode || '';
+    if (!pugToCopy.trim()) return;
+
+    const fileKey = activeFileId || 'global';
+    const contextKey = `${fileKey}:${pugToCopy}`;
+    if (lastCopiedContextRef.current === contextKey) return;
+
+    navigator.clipboard.writeText(pugToCopy)
+      .then(() => {
+        lastCopiedContextRef.current = contextKey;
+        const lineCount = pugToCopy.split('\n').length;
+        const charCount = pugToCopy.length;
+        const fileLabel = activeFile?.name || 'Untitled';
+        useAppStore.getState().setStatusMessage(
+          `Copied Pug for ${fileLabel}: ${lineCount} line${lineCount !== 1 ? 's' : ''}, ${charCount} char${charCount !== 1 ? 's' : ''}`,
+          15000
+        );
+      })
+      .catch((err) => {
+        console.error('Failed to copy Pug to clipboard:', err);
+      });
+  }, [activeFileId, displayJADECode, hasHydrated, activeFile]);
 
   return (
     <div ref={sectionRef as any} className="flex flex-1 relative overflow-hidden">

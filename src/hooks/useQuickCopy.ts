@@ -51,7 +51,10 @@ export const useQuickCopy = (
       currentSelectionRef.current = null;
       lastHoverLineRef.current = -1;
       multiSelectionsRef.current = [];
-      useAppStore.getState().setStatusMessage(null);
+      const status = useAppStore.getState().statusMessage;
+      if (status === 'Quick Copy is active') {
+        useAppStore.getState().setStatusMessage(null);
+      }
       return;
     }
 
@@ -59,7 +62,7 @@ export const useQuickCopy = (
     if (!model) return;
 
     // Show initial Quick Copy active message
-    useAppStore.getState().setStatusMessage('Quick Copy is active');
+    useAppStore.getState().setStatusMessage('Quick Copy is active', 15000);
 
     // Add a listener to prevent selection changes when locked
     selectionChangeDisposableRef.current = currentEditor.onDidChangeCursorSelection(() => {
@@ -326,7 +329,10 @@ export const useQuickCopy = (
               .then(() => {
                 const selectionCount = multiSelectionsRef.current.length;
                 const totalLines = normalizedLines.length;
-                useAppStore.getState().setStatusMessage(`Copied ${selectionCount} selection${selectionCount !== 1 ? 's' : ''} (${totalLines} line${totalLines !== 1 ? 's' : ''})`);
+                useAppStore.getState().setStatusMessage(
+                  `Copied ${selectionCount} selection${selectionCount !== 1 ? 's' : ''} (${totalLines} line${totalLines !== 1 ? 's' : ''})`,
+                  15000
+                );
                 onCopy?.();
               })
               .catch((err) => {
@@ -367,7 +373,10 @@ export const useQuickCopy = (
               .then(() => {
                 const blockName = getBlockName(selection.startLineNumber);
                 const lineCount = normalizedLines.length;
-                useAppStore.getState().setStatusMessage(`Copied ${blockName} (${lineCount} line${lineCount !== 1 ? 's' : ''})`);
+                useAppStore.getState().setStatusMessage(
+                  `Copied ${blockName} (${lineCount} line${lineCount !== 1 ? 's' : ''})`,
+                  15000
+                );
                 
                 // Restore selection after copy
                 currentEditor.setSelection(selection);

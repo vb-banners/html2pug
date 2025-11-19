@@ -61,7 +61,8 @@ export const useAutoCopyOnSelect = (
             const lineCount = selectedText.split('\n').length;
             const charCount = selectedText.length;
             useAppStore.getState().setStatusMessage(
-              `Copied ${lineCount} line${lineCount !== 1 ? 's' : ''} (${charCount} char${charCount !== 1 ? 's' : ''})`
+              `Copied ${lineCount} line${lineCount !== 1 ? 's' : ''} (${charCount} char${charCount !== 1 ? 's' : ''})`,
+              15000
             );
             onCopy?.();
           })
