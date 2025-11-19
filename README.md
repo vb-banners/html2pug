@@ -50,7 +50,7 @@ A real-time online converter that transforms SVG code into PUG (formerly Jade) t
 
 ## 🚀 Demo
 
-Visit the live demo at: [https://vb-banners.github.io/html2pug/](https://vb-banners.github.io/html2pug/)
+Visit the live demo at: [https://vb-banners.github.io/svg2pug/](https://vb-banners.github.io/svg2pug/)
 
 ## 📦 Installation
 
