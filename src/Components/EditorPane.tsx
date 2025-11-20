@@ -63,6 +63,7 @@ export const EditorPane: React.FC = () => {
   const [isCopied, setIsCopied] = React.useState(false);
   const [previewContent, setPreviewContent] = React.useState<string>('');
   const lastCopiedContextRef = useRef<string | null>(null);
+  const prevRemoveSvgParentRef = useRef<boolean | null>(null);
   const skipNextScrollRef = useRef<{ html: boolean; pug: boolean }>({
     html: false,
     pug: false,
@@ -230,6 +231,15 @@ export const EditorPane: React.FC = () => {
 
   // Re-apply "Remove SVG Parent" across all tabs when toggled to keep outputs consistent
   useEffect(() => {
+    if (!hasHydrated) return;
+    // Only run when the toggle actually changes (avoid clobbering on initial load)
+    if (prevRemoveSvgParentRef.current === removeSvgParentEnabled) return;
+    prevRemoveSvgParentRef.current = removeSvgParentEnabled;
+
+    // Conversion library might not be ready immediately on load
+    const html2JadeReady = typeof window !== 'undefined' && (window as any).Html2Jade;
+    if (!html2JadeReady) return;
+
     const state = useAppStore.getState();
     const files = state.openFiles;
     if (!files || files.length === 0) return;
@@ -251,7 +261,7 @@ export const EditorPane: React.FC = () => {
 
       state.updateFileContent(file.id, htmlContent, pugContent);
     });
-  }, [removeSvgParentEnabled, isSvgoEnabled, svgoSettings, enableSvgIdToClass, enableCommonClasses, enablePugSizeVars, useSoftTabs, tabSize, convertHtmlToPug]);
+  }, [removeSvgParentEnabled, hasHydrated, isSvgoEnabled, svgoSettings, enableSvgIdToClass, enableCommonClasses, enablePugSizeVars, useSoftTabs, tabSize, convertHtmlToPug]);
 
   // Force layout when content changes (after hydration or file upload)
   useEffect(() => {
@@ -396,8 +406,6 @@ export const EditorPane: React.FC = () => {
 
   // Sync preview content on file switch or initial load
   useEffect(() => {
-    const removeSvgParent = Boolean(svgoSettings?.plugins?.removeSvgElement);
-
     const extractSvgAttributes = (html: string): string => {
       const match = html.match(/<svg\s+([^>]*?)>/i);
       return match && match[1] ? match[1].trim() : '';
@@ -412,7 +420,7 @@ export const EditorPane: React.FC = () => {
         injectDebugInfo: true
       }) || '';
 
-      if (removeSvgParent && debugHtml && !/<svg[\s\S]*?>/i.test(debugHtml)) {
+      if (debugHtml && !/<svg[\s\S]*?>/i.test(debugHtml)) {
         const svgAttrs = extractSvgAttributes(displayHTMLCode || '');
         debugHtml = svgAttrs ? `<svg ${svgAttrs}>${debugHtml}</svg>` : `<svg>${debugHtml}</svg>`;
       }

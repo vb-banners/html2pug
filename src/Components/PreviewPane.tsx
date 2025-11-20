@@ -17,6 +17,11 @@ interface PreviewPaneProps {
 export const PreviewPane: React.FC<PreviewPaneProps> = ({ htmlContent, fileName, fileId, onContentSizeChange, highlightLines, isCopied, originalHtml }) => {
   const previewScale = useAppStore(state => state.previewScale);
   const setPreviewScale = useAppStore(state => state.setPreviewScale);
+  const effectiveContent = useMemo(() => {
+    if (htmlContent && htmlContent.trim().length > 0) return htmlContent;
+    if (originalHtml && originalHtml.trim().length > 0) return originalHtml;
+    return '';
+  }, [htmlContent, originalHtml]);
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const gestureStartScaleRef = useRef<number>(1);
@@ -42,7 +47,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ htmlContent, fileName,
 
   // Parse SVG dimensions directly from content
   useEffect(() => {
-    if (!htmlContent) return;
+    if (!effectiveContent) return;
 
     const extractDimensionsFromSvg = (svg: Element) => {
         let w = 0;
@@ -99,13 +104,13 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ htmlContent, fileName,
         return extractDimensionsFromSvg(svg);
     };
 
-    const dims = extractSvgDimensions(htmlContent);
+    const dims = extractSvgDimensions(effectiveContent);
     if (dims) {
         setContentWidth(dims.width);
         setContentHeight(dims.height);
         onContentSizeChange?.(dims.width, dims.height);
     }
-  }, [htmlContent, onContentSizeChange, originalHtml]);
+  }, [effectiveContent, onContentSizeChange, originalHtml]);
 
   // Constants
   const MIN_SCALE = 0.1;
@@ -416,11 +421,11 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({ htmlContent, fileName,
           </script>
         </head>
         <body>
-          ${htmlContent}
+          ${effectiveContent}
         </body>
       </html>
     `;
-  }, [htmlContent]);
+  }, [effectiveContent]);
 
   // Measure container size
   useEffect(() => {

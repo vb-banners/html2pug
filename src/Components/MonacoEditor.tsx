@@ -93,6 +93,218 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
     // Ensure theme is set
     monacoInstance.editor.setTheme('ayu-mirage');
 
+    // Sublime-flavored keymap for frequently used shortcuts
+    const { KeyMod, KeyCode } = monacoInstance;
+    const bind = (
+      keybinding: number,
+      commandId: string,
+      args?: any,
+    ) => {
+      editor.addCommand(keybinding, () => {
+        editor.trigger('', commandId, args ?? null);
+      });
+    };
+
+    // Multi-cursor / selection
+    bind(KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.UpArrow, 'editor.action.insertCursorAbove');
+    bind(KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.DownArrow, 'editor.action.insertCursorBelow');
+    bind(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyL, 'editor.action.insertCursorAtEndOfEachLineSelected'); // split selection into lines
+    bind(KeyMod.CtrlCmd | KeyCode.KeyD, 'editor.action.addSelectionToNextFindMatch');
+    bind(KeyMod.CtrlCmd | KeyMod.WinCtrl | KeyCode.KeyG, 'editor.action.selectHighlights'); // select all occurrences
+
+    // Line actions
+    bind(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyD, 'editor.action.copyLinesDownAction');
+    bind(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyK, 'editor.action.deleteLines');
+    bind(KeyMod.CtrlCmd | KeyCode.Enter, 'editor.action.insertLineAfter');
+    bind(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter, 'editor.action.insertLineBefore');
+    bind(KeyMod.CtrlCmd | KeyCode.KeyL, 'expandLineSelection');
+    bind(KeyMod.CtrlCmd | KeyCode.KeyA, 'editor.action.selectAll');
+    bind(KeyMod.CtrlCmd | KeyCode.KeyJ, 'editor.action.joinLines');
+    bind(KeyMod.CtrlCmd | KeyMod.WinCtrl | KeyCode.UpArrow, 'editor.action.moveLinesUpAction');
+    bind(KeyMod.CtrlCmd | KeyMod.WinCtrl | KeyCode.DownArrow, 'editor.action.moveLinesDownAction');
+    bind(KeyMod.CtrlCmd | KeyCode.KeyZ, 'undo');
+    bind(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyZ, 'redo');
+    bind(KeyMod.CtrlCmd | KeyCode.KeyY, 'redo');
+
+    // Delete to boundaries
+    bind(KeyMod.CtrlCmd | KeyCode.Backspace, 'deleteAllLeft');
+    bind(KeyMod.CtrlCmd | KeyCode.Delete, 'deleteAllRight');
+
+    // Find / navigation
+    bind(KeyMod.CtrlCmd | KeyCode.KeyG, 'editor.action.nextMatchFindAction');
+    bind(KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyG, 'editor.action.previousMatchFindAction');
+    bind(KeyMod.CtrlCmd | KeyCode.KeyM, 'editor.action.jumpToBracket');
+
+    // Fold / unfold
+    bind(KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.BracketLeft, 'editor.fold');
+    bind(KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.BracketRight, 'editor.unfold');
+
+    // Comments
+    bind(KeyMod.CtrlCmd | KeyCode.Slash, 'editor.action.commentLine');
+    bind(KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Slash, 'editor.action.blockComment');
+
+    // Case transforms (chords)
+    bind(KeyMod.chord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyMod.CtrlCmd | KeyCode.KeyU), 'editor.action.transformToUppercase');
+    bind(KeyMod.chord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyMod.CtrlCmd | KeyCode.KeyL), 'editor.action.transformToLowercase');
+
+    // Prevent browser tab shortcuts from hijacking when editor is focused
+    editor.onKeyDown((e) => {
+      const meta = e.metaKey || e.ctrlKey;
+      if (!meta) return;
+
+      const stop = () => {
+        e.preventDefault();
+        e.stopPropagation();
+      };
+
+      // Undo / Redo
+      if (!e.shiftKey && e.keyCode === KeyCode.KeyZ) {
+        stop();
+        editor.trigger('', 'undo', null);
+        return;
+      }
+      if (e.shiftKey && e.keyCode === KeyCode.KeyZ) {
+        stop();
+        editor.trigger('', 'redo', null);
+        return;
+      }
+      if (!e.shiftKey && e.keyCode === KeyCode.KeyY) {
+        stop();
+        editor.trigger('', 'redo', null);
+        return;
+      }
+
+      // Multi-cursor
+      if (e.altKey && e.keyCode === KeyCode.UpArrow) {
+        stop();
+        editor.trigger('', 'editor.action.insertCursorAbove', null);
+      } else if (e.altKey && e.keyCode === KeyCode.DownArrow) {
+        stop();
+        editor.trigger('', 'editor.action.insertCursorBelow', null);
+      } else if (e.shiftKey && e.keyCode === KeyCode.KeyL) {
+        stop();
+        editor.trigger('', 'editor.action.insertCursorAtEndOfEachLineSelected', null);
+      } else if (!e.shiftKey && e.keyCode === KeyCode.KeyD) {
+        stop();
+        editor.trigger('', 'editor.action.addSelectionToNextFindMatch', null);
+      } else if (e.ctrlKey && e.keyCode === KeyCode.KeyG) {
+        stop();
+        editor.trigger('', 'editor.action.selectHighlights', null);
+      }
+
+      // Line ops
+      else if (e.shiftKey && e.keyCode === KeyCode.KeyD) {
+        stop();
+        editor.trigger('', 'editor.action.copyLinesDownAction', null);
+      } else if (e.shiftKey && e.keyCode === KeyCode.KeyK) {
+        stop();
+        editor.trigger('', 'editor.action.deleteLines', null);
+      } else if (!e.shiftKey && e.keyCode === KeyCode.Enter) {
+        stop();
+        editor.trigger('', 'editor.action.insertLineAfter', null);
+      } else if (e.shiftKey && e.keyCode === KeyCode.Enter) {
+        stop();
+        editor.trigger('', 'editor.action.insertLineBefore', null);
+      } else if (!e.shiftKey && e.keyCode === KeyCode.KeyL) {
+        stop();
+        editor.trigger('', 'expandLineSelection', null);
+      } else if (!e.shiftKey && e.keyCode === KeyCode.KeyA) {
+        stop();
+        editor.trigger('', 'editor.action.selectAll', null);
+      } else if (e.ctrlKey && e.keyCode === KeyCode.UpArrow) {
+        stop();
+        editor.trigger('', 'editor.action.moveLinesUpAction', null);
+      } else if (e.ctrlKey && e.keyCode === KeyCode.DownArrow) {
+        stop();
+        editor.trigger('', 'editor.action.moveLinesDownAction', null);
+      } else if (!e.shiftKey && e.keyCode === KeyCode.KeyJ) {
+        stop();
+        editor.trigger('', 'editor.action.joinLines', null);
+      }
+
+      // Delete to edges
+      else if (e.keyCode === KeyCode.Backspace && !e.shiftKey) {
+        stop();
+        editor.trigger('', 'deleteAllLeft', null);
+      } else if (e.keyCode === KeyCode.Delete && !e.shiftKey) {
+        stop();
+        editor.trigger('', 'deleteAllRight', null);
+      }
+
+      // Find
+      else if (!e.shiftKey && e.keyCode === KeyCode.KeyG) {
+        stop();
+        editor.trigger('', 'editor.action.nextMatchFindAction', null);
+      } else if (e.shiftKey && e.keyCode === KeyCode.KeyG) {
+        stop();
+        editor.trigger('', 'editor.action.previousMatchFindAction', null);
+      } else if (e.keyCode === KeyCode.KeyM) {
+        stop();
+        editor.trigger('', 'editor.action.jumpToBracket', null);
+      }
+
+      // Copy whole line when no selection (Cmd/Ctrl+C)
+      else if (!e.shiftKey && e.keyCode === KeyCode.KeyC) {
+        const selection = editor.getSelection();
+        const model = editor.getModel();
+        if (!model || !selection) return;
+
+        const hasSelection = !selection.isEmpty();
+        if (hasSelection) {
+          stop();
+          editor.trigger('', 'editor.action.clipboardCopyAction', null);
+          return;
+        }
+
+        const lineNumber = selection.startLineNumber;
+        const lineText = model.getLineContent(lineNumber) + model.getEOL();
+        stop();
+
+        // Try modern clipboard first
+        if (navigator.clipboard?.writeText) {
+          navigator.clipboard.writeText(lineText).catch(() => {
+            const fullLineRange = new monacoInstance.Range(
+              lineNumber,
+              1,
+              lineNumber,
+              model.getLineMaxColumn(lineNumber)
+            );
+            editor.setSelection(fullLineRange);
+            editor.trigger('', 'editor.action.clipboardCopyAction', null);
+            editor.setSelection(selection);
+          });
+        } else {
+          const fullLineRange = new monacoInstance.Range(
+            lineNumber,
+            1,
+            lineNumber,
+            model.getLineMaxColumn(lineNumber)
+          );
+          editor.setSelection(fullLineRange);
+          editor.trigger('', 'editor.action.clipboardCopyAction', null);
+          editor.setSelection(selection);
+        }
+      }
+
+      // Fold
+      else if (e.altKey && e.keyCode === KeyCode.BracketLeft) {
+        stop();
+        editor.trigger('', 'editor.fold', null);
+      } else if (e.altKey && e.keyCode === KeyCode.BracketRight) {
+        stop();
+        editor.trigger('', 'editor.unfold', null);
+      }
+
+      // Comments
+      else if (!e.shiftKey && e.keyCode === KeyCode.Slash) {
+        stop();
+        editor.trigger('', 'editor.action.commentLine', null);
+      } else if (e.altKey && e.keyCode === KeyCode.Slash) {
+        stop();
+        editor.trigger('', 'editor.action.blockComment', null);
+      }
+    });
+
     // Add hex color decorations
     updateHexColorDecorations(editor, monacoInstance);
 

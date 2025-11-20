@@ -22,7 +22,6 @@ export const HelpDialog: React.FC<HelpDialogProps> = ({ isOpen, onClose }) => {
         </DialogHeader>
         
         <div className="space-y-6 mt-4">
-          {/* Keyboard Shortcuts - Temporarily commented out for beta
           <section>
             <h3 className="text-lg font-semibold mb-3">Keyboard Shortcuts</h3>
             <div className="space-y-2">
@@ -82,7 +81,6 @@ export const HelpDialog: React.FC<HelpDialogProps> = ({ isOpen, onClose }) => {
               </div>
             </div>
           </section>
-          */}
 
           <section>
             <h3 className="text-lg font-semibold mb-3">About</h3>
